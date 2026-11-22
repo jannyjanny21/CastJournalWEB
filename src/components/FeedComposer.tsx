@@ -4,15 +4,14 @@ import { resolveMediaUrl } from '../utils/mediaUrl';
 import { Card, CardContent } from './ui/card';
 
 /**
- * A warm, inviting entry point to logging a catch, styled like a social
- * feed composer — but it's a launcher, not a text post box. CastJournal
- * catches are structured records (species/weight/length/photo), so tapping
- * this routes straight into the real CatchForm at /catches/new rather than
- * accepting free text that couldn't map to that schema.
+ * A warm, inviting entry point to logging a trip, styled like a social
+ * feed composer — but it's a launcher, not a text post box. A trip is a
+ * structured record (date, location, catches with species/weight/photos),
+ * so tapping this routes straight into the real TripForm at /trips/new.
  */
 export function FeedComposer({ avatarUrl }: { avatarUrl?: string | null }) {
   return (
-    <Link to="/catches/new" className="mb-6 block text-inherit no-underline">
+    <Link to="/trips/new" className="mb-6 block text-inherit no-underline">
       <Card
         interactive
         size="sm"
@@ -35,7 +34,7 @@ export function FeedComposer({ avatarUrl }: { avatarUrl?: string | null }) {
 
           <span className="hidden shrink-0 items-center gap-1.5 rounded-full bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground sm:inline-flex">
             <Fish className="size-3.5" />
-            Log a catch
+            Log a trip
           </span>
         </CardContent>
       </Card>

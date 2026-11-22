@@ -6,16 +6,17 @@ import { searchApi } from '../api/search';
 import { followApi } from '../api/follow';
 import type { SearchResults, SearchScope } from '../types/search';
 import { resolveMediaUrl } from '../utils/mediaUrl';
+import { tripCoverMedia, tripHeading } from '../utils/trip';
 import { cn } from '@/lib/utils';
 
 const SCOPES: { value: SearchScope; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'users', label: 'Anglers' },
-  { value: 'catches', label: 'Catches' },
+  { value: 'trips', label: 'Trips' },
 ];
 
 const EMPTY_PAGE = { items: [], totalCount: 0, page: 1, pageSize: 20, totalPages: 0 };
-const emptyResults = (): SearchResults => ({ users: { ...EMPTY_PAGE }, catches: { ...EMPTY_PAGE } });
+const emptyResults = (): SearchResults => ({ users: { ...EMPTY_PAGE }, trips: { ...EMPTY_PAGE } });
 
 export function SearchBar() {
   const navigate = useNavigate();
@@ -90,9 +91,9 @@ export function SearchBar() {
   };
 
   const users = results.users.items;
-  const catches = results.catches.items;
+  const trips = results.trips.items;
   const hasQuery = query.trim().length >= 2;
-  const hasResults = users.length > 0 || catches.length > 0;
+  const hasResults = users.length > 0 || trips.length > 0;
 
   const goTo = (path: string) => {
     setIsOpen(false);
@@ -126,7 +127,7 @@ export function SearchBar() {
           value={query}
           onChange={(e) => handleQueryChange(e.target.value)}
           onFocus={() => setIsOpen(true)}
-          placeholder="Search anglers & catches"
+          placeholder="Search anglers & trips"
           className="w-full min-w-0 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
         />
         {query && (
@@ -191,30 +192,33 @@ export function SearchBar() {
               </div>
             )}
 
-            {!isLoading && (scope === 'all' || scope === 'catches') && catches.length > 0 && (
+            {!isLoading && (scope === 'all' || scope === 'trips') && trips.length > 0 && (
               <div>
                 {scope === 'all' && (
-                  <p className="px-2 pb-1 text-xs tracking-widest text-muted-foreground uppercase">Catches</p>
+                  <p className="px-2 pb-1 text-xs tracking-widest text-muted-foreground uppercase">Trips</p>
                 )}
-                {catches.map((c) => (
+                {trips.map((t) => {
+                  const cover = tripCoverMedia(t);
+                  return (
                   <button
-                    key={c.id}
-                    onClick={() => goTo(`/catches/${c.id}`)}
+                    key={t.id}
+                    onClick={() => goTo(`/trips/${t.id}`)}
                     className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left hover:bg-muted"
                   >
-                    {c.media[0]?.mediaUrl ? (
-                      <img src={resolveMediaUrl(c.media[0].mediaUrl)} alt="" className="size-8 shrink-0 rounded-md object-cover" />
+                    {cover && cover.mediaType !== 'Video' ? (
+                      <img src={resolveMediaUrl(cover.mediaUrl)} alt="" className="size-8 shrink-0 rounded-md object-cover" />
                     ) : (
                       <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted">
                         <Fish className="size-4 text-muted-foreground" />
                       </div>
                     )}
                     <span className="truncate text-sm">
-                      <span className="font-medium">{c.speciesName ?? 'Catch'}</span>
-                      {c.userFullName && <span className="text-muted-foreground"> · {c.userFullName}</span>}
+                      <span className="font-medium">{tripHeading(t)}</span>
+                      {t.userFullName && <span className="text-muted-foreground"> · {t.userFullName}</span>}
                     </span>
                   </button>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

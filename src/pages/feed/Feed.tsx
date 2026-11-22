@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { catchesApi } from '../../api/catches';
+import { tripsApi } from '../../api/trips';
 import { profileApi } from '../../api/profile';
-import type { Catch, PagedResult } from '../../types/catch';
-import { CatchCard } from '../../components/CatchCard';
+import type { PagedResult } from '../../types/catch';
+import type { Trip } from '../../types/trip';
+import { TripCard } from '../../components/TripCard';
 import { CatchCardSkeleton } from '../../components/CatchCardSkeleton';
 import { FeedComposer } from '../../components/FeedComposer';
 import { PageHeader } from '../../components/PageHeader';
@@ -11,7 +12,7 @@ import { Card, CardContent } from '@/components/ui/card';
 
 export function Feed() {
   const [followingOnly, setFollowingOnly] = useState(false);
-  const [result, setResult] = useState<PagedResult<Catch> | null>(null);
+  const [result, setResult] = useState<PagedResult<Trip> | null>(null);
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +32,7 @@ export function Feed() {
     async function load() {
       setIsLoading(true);
       try {
-        const res = await catchesApi.getFeed({ followingOnly, page, pageSize: 10 });
+        const res = await tripsApi.getFeed({ followingOnly, page, pageSize: 10 });
         if (!cancelled) setResult(res);
       } catch {
         if (!cancelled) setError('Could not load the feed.');
@@ -81,13 +82,13 @@ export function Feed() {
           {!isLoading && result?.items.length === 0 && (
             <Card>
               <CardContent className="text-center text-muted-foreground">
-                {followingOnly ? 'Follow other anglers to see their catches here.' : 'No public catches yet.'}
+                {followingOnly ? 'Follow other anglers to see their trips here.' : 'No published trips yet.'}
               </CardContent>
             </Card>
           )}
 
           <div className="flex flex-col gap-4">
-            {result?.items.map((c) => <CatchCard key={c.id} item={c} />)}
+            {result?.items.map((t) => <TripCard key={t.id} item={t} />)}
           </div>
 
           {result && result.totalPages > 1 && (

@@ -8,6 +8,7 @@ export interface CatchMedia {
 
 export interface Catch {
   id: string;
+  tripId: string;
   userId: string;
   userFullName: string | null;
   userAvatarUrl: string | null;
@@ -22,7 +23,9 @@ export interface Catch {
   baitUsed: string | null;
   fishingMethod: string | null;
   notes: string | null;
+  /** Read-only: taken from the parent trip. */
   weatherConditions: string | null;
+  /** Read-only: taken from the parent trip. */
   isPublic: boolean;
   createdAt: string;
   likeCount: number;
@@ -41,8 +44,6 @@ export interface CreateCatchPayload {
   baitUsed: string | null;
   fishingMethod: string | null;
   notes: string | null;
-  weatherConditions: string | null;
-  isPublic: boolean;
 }
 
 export interface CatchFilter {
@@ -59,13 +60,6 @@ export interface CatchFilter {
   pageSize?: number;
 }
 
-export interface FeedFilter {
-  userId?: string;
-  followingOnly?: boolean;
-  page?: number;
-  pageSize?: number;
-}
-
 export interface PagedResult<T> {
   items: T[];
   totalCount: number;
@@ -73,4 +67,3 @@ export interface PagedResult<T> {
   pageSize: number;
   totalPages: number;
 }
-
