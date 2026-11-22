@@ -7,6 +7,9 @@ import { Register } from './pages/auth/Register';
 import { MyCatches } from './pages/catches/MyCatches';
 import { CatchForm } from './pages/catches/CatchForm';
 import { CatchDetail } from './pages/catches/CatchDetail';
+import { MyTrips } from './pages/trips/MyTrips';
+import { TripForm } from './pages/trips/TripForm';
+import { TripDetail } from './pages/trips/TripDetail';
 import { MyLocations } from './pages/locations/MyLocations';
 import { MyProfile } from './pages/profile/MyProfile';
 import { Feed } from './pages/feed/Feed';
@@ -47,8 +50,14 @@ function App() {
 
         {/* Everything else keeps the narrow shell */}
         <Route element={<Layout />}>
+          <Route path="/trips" element={<MyTrips />} />
+          <Route path="/trips/new" element={<TripForm />} />
+          <Route path="/trips/:id" element={<TripDetail />} />
+          <Route path="/trips/:id/edit" element={<TripForm />} />
+          <Route path="/trips/:tripId/catches/new" element={<CatchForm />} />
+
+          {/* Catch history (search across all your catches); a catch opens on its trip's page */}
           <Route path="/catches" element={<MyCatches />} />
-          <Route path="/catches/new" element={<CatchForm />} />
           <Route path="/catches/:id" element={<CatchDetail />} />
           <Route path="/catches/:id/edit" element={<CatchForm />} />
 

@@ -1,23 +1,23 @@
 import { Share2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from './ui/button';
-import { copyCatchLink } from '../utils/share';
+import { copyTripLink } from '../utils/share';
 
 interface ShareButtonProps {
-  catchId: string;
+  tripId: string;
   /** Show the "Share" label next to the icon (feed card style). Defaults to true. */
   showLabel?: boolean;
   className?: string;
 }
 
-export function ShareButton({ catchId, showLabel = true, className }: ShareButtonProps) {
+export function ShareButton({ tripId, showLabel = true, className }: ShareButtonProps) {
   const handleShare = async (e: React.MouseEvent) => {
     // Prevent this from bubbling into a parent <Link> (e.g. the card wrapping
     // the whole post) if this button is ever nested inside one.
     e.preventDefault();
     e.stopPropagation();
 
-    const ok = await copyCatchLink(catchId);
+    const ok = await copyTripLink(tripId);
     if (ok) {
       toast.success('Link copied!');
     } else {
@@ -30,7 +30,7 @@ export function ShareButton({ catchId, showLabel = true, className }: ShareButto
       variant="ghost"
       size="sm"
       onClick={handleShare}
-      aria-label="Share this catch"
+      aria-label="Share this trip"
       className={className ?? 'px-2 text-muted-foreground hover:text-foreground'}
     >
       <Share2 className="size-4" />
