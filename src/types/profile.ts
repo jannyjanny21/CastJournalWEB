@@ -23,6 +23,7 @@ export interface PublicProfile {
   avatarUrl: string | null;
   preferredFishingMethods: string | null;
   memberSince: string;
+  publicTripCount: number;
   publicCatchCount: number;
   followerCount: number;
   followingCount: number;

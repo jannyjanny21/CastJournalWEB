@@ -24,7 +24,7 @@ function CommentRow({
     if (!draft.trim() || busy) return;
     setBusy(true);
     try {
-      await commentsApi.update(comment.catchId, comment.id, draft.trim());
+      await commentsApi.update(comment.tripId, comment.id, draft.trim());
       onUpdated({ ...comment, content: draft.trim(), editedAt: new Date().toISOString() });
       setIsEditing(false);
     } catch {
@@ -38,7 +38,7 @@ function CommentRow({
     if (busy || !confirm('Delete this comment?')) return;
     setBusy(true);
     try {
-      await commentsApi.remove(comment.catchId, comment.id);
+      await commentsApi.remove(comment.tripId, comment.id);
       onDeleted(comment.id);
     } catch {
       toast.error("Couldn't delete this comment — try again.");
@@ -106,10 +106,10 @@ function CommentRow({
 }
 
 export function CommentSection({
-  catchId,
+  tripId,
   onCountChange,
 }: {
-  catchId: string;
+  tripId: string;
   /** Called with the authoritative total whenever it changes (load, add, delete). */
   onCountChange?: (count: number) => void;
 }) {
@@ -133,7 +133,7 @@ export function CommentSection({
       setIsLoading(true);
       setError(null);
       try {
-        const res = await commentsApi.getForCatch(catchId);
+        const res = await commentsApi.getForTrip(tripId);
         if (!cancelled) {
           setComments(res.items);
           setTotalCount(res.totalCount);
@@ -150,14 +150,14 @@ export function CommentSection({
     return () => {
       cancelled = true;
     };
-  }, [catchId]);
+  }, [tripId]);
 
   const submit = async () => {
     const content = newComment.trim();
     if (!content || posting) return;
     setPosting(true);
     try {
-      const created = await commentsApi.add(catchId, content);
+      const created = await commentsApi.add(tripId, content);
       setComments((prev) => [...prev, created]);
       const next = totalCount + 1;
       setTotalCount(next);

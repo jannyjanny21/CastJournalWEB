@@ -6,13 +6,14 @@ import { resolveMediaUrl } from '../utils/mediaUrl';
 import { NotificationBell } from './NotificationBell';
 import { Button } from './ui/button';
 import {
-  LayoutGrid, Fish, MapPin, BarChart3, Download, ShieldCheck,
+  LayoutGrid, Fish, Sailboat, MapPin, BarChart3, Download, ShieldCheck,
   LogOut, ChevronsLeft, ChevronsRight, Menu,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const mainLinks = [
   { to: '/feed', label: 'Feed', icon: LayoutGrid },
+  { to: '/trips', label: 'My Trips', icon: Sailboat },
   { to: '/catches', label: 'My Catches', icon: Fish },
   { to: '/locations', label: 'Locations', icon: MapPin },
   { to: '/analytics', label: 'Stats', icon: BarChart3 },

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -10,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { AuthLayout } from '@/components/auth/AuthLayout';
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
+import { CircleX } from 'lucide-react';
 
 
 const registerSchema = z.object({
@@ -27,6 +29,7 @@ type RegisterValues = z.infer<typeof registerSchema>;
 export function Register() {
   const { register } = useAuth();
   const navigate = useNavigate();
+  const [serverPasswordErrors, setServerPasswordErrors] = useState<string[]>([]);
 
   const form = useForm<RegisterValues>({
     resolver: zodResolver(registerSchema),
@@ -34,15 +37,34 @@ export function Register() {
   });
 
   const onSubmit = async (values: RegisterValues) => {
+    setServerPasswordErrors([]);
+
     try {
       await register(values);
       navigate('/feed');
     } catch (err) {
-      const message =
-        err && typeof err === 'object' && 'message' in err
-          ? String((err as { message: unknown }).message)
-          : 'Something went wrong. Please try again.';
-      form.setError('root', { message });
+      const error = err as {
+        message?: string;
+        details?: unknown;
+      };
+
+      const identityErrors = Array.isArray(error.details)
+        ? error.details
+          .map((item) => item?.description)
+          .filter((message): message is string => Boolean(message))
+        : [];
+
+      if (identityErrors.length > 0) {
+        setServerPasswordErrors(identityErrors);
+        form.setError('password', {
+          type: 'server',
+          message: 'Please meet all password requirements.',
+        });
+      } else {
+        form.setError('root', {
+          message: error.message ?? 'Something went wrong. Please try again.',
+        });
+      }
     }
   };
 
@@ -108,9 +130,29 @@ export function Register() {
                   <FormItem>
                     <FormLabel>Password</FormLabel>
                     <FormControl>
-                      <Input type="password" autoComplete="new-password" {...field} />
+                      <Input
+                        type="password"
+                        autoComplete="new-password"
+                        {...field}
+                        onChange={(event) => {
+                          setServerPasswordErrors([]);
+                          form.clearErrors('password');
+                          field.onChange(event);
+                        }}
+                      />
                     </FormControl>
-                    <FormMessage />
+                    {serverPasswordErrors.length > 0 ? (
+                      <ul className="space-y-1 text-sm italic text-destructive" role="alert">
+                        {serverPasswordErrors.map((message) => (
+                          <li key={message} className="flex items-start gap-1.5">
+                            <CircleX aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+                            <span>{message}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <FormMessage />
+                    )}
                   </FormItem>
                 )}
               />
@@ -126,7 +168,7 @@ export function Register() {
               </Button>
             </form>
           </Form>
-          
+
           <div className="my-5 flex items-center gap-3 text-xs text-muted-foreground">
             <span className="h-px flex-1 bg-border" />
             or

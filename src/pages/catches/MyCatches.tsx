@@ -38,7 +38,7 @@ export function MyCatches() {
     <div>
       <PageHeader
         title="My Catches"
-        action={<Link to="/catches/new"><Button>+ Log a catch</Button></Link>}
+        action={<Link to="/trips/new"><Button>+ Log a trip</Button></Link>}
       >
         <Input
           type="search"
@@ -64,14 +64,14 @@ export function MyCatches() {
           <Card>
             <CardContent className="text-center text-muted-foreground">
               <p>You haven't logged a catch yet.</p>
-              <Link to="/catches/new"><Button>Log your first catch</Button></Link>
+              <Link to="/trips/new"><Button>Log your first trip</Button></Link>
             </CardContent>
           </Card>
         )}
 
         <div className="flex flex-col gap-3">
           {result?.items.map((c) => (
-            <Link key={c.id} to={`/catches/${c.id}`} className="text-inherit no-underline">
+            <Link key={c.id} to={`/trips/${c.tripId}#catch-${c.id}`} className="text-inherit no-underline">
               <Card interactive>
                 <CardContent className="flex flex-row items-center justify-between">
                   <div>

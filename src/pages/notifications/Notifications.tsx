@@ -12,7 +12,10 @@ function resolveTarget(n: Notification): string | null {
   if (!n.relatedEntityType || !n.relatedEntityId) return null;
 
   switch (n.relatedEntityType) {
+    case 'Trip':
+      return `/trips/${n.relatedEntityId}`;
     case 'Catch':
+      // Notifications from before trips existed: each old catch became a trip with the same ID.
       return `/catches/${n.relatedEntityId}`;
     case 'User':
       return `/anglers/${n.relatedEntityId}`;

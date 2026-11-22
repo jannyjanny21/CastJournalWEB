@@ -1,5 +1,5 @@
 import { api, uploadFile } from './client';
-import type { Catch, CreateCatchPayload, CatchFilter, FeedFilter, PagedResult, CatchMedia } from '../types/catch';
+import type { Catch, CreateCatchPayload, CatchFilter, PagedResult, CatchMedia } from '../types/catch';
 
 function toQueryString(filter: object): string {
   const params = new URLSearchParams();
@@ -11,15 +11,15 @@ function toQueryString(filter: object): string {
   return params.toString();
 }
 
+/**
+ * Individual catches. Creating a catch, the feed, likes and comments all go
+ * through trips now (see api/trips.ts and api/comments.ts).
+ */
 export const catchesApi = {
   search: (filter: CatchFilter) =>
     api.get<PagedResult<Catch>>(`/catches/search?${toQueryString(filter)}`),
 
-  getFeed: (filter: FeedFilter) =>
-    api.get<PagedResult<Catch>>(`/catches/feed?${toQueryString(filter)}`),
-
   getById: (id: string) => api.get<Catch>(`/catches/${id}`),
-  create: (payload: CreateCatchPayload) => api.post<Catch>('/catches', payload),
   update: (id: string, payload: CreateCatchPayload) => api.put<void>(`/catches/${id}`, payload),
   remove: (id: string) => api.delete<void>(`/catches/${id}`),
 
@@ -31,7 +31,4 @@ export const catchesApi = {
   },
 
   getMedia: (catchId: string) => api.get<CatchMedia[]>(`/media/catch/${catchId}`),
-
-  like: (catchId: string) => api.post<void>(`/catches/${catchId}/like`),
-  unlike: (catchId: string) => api.delete<void>(`/catches/${catchId}/like`),
 };

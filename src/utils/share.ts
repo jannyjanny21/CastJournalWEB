@@ -1,11 +1,11 @@
 /**
- * Builds the shareable link for a catch and copies it to the clipboard.
+ * Builds the shareable link for a trip and copies it to the clipboard.
  * Falls back to a legacy `execCommand` copy when the Clipboard API isn't
  * available (e.g. non-HTTPS / insecure contexts), and never throws —
  * callers get a boolean back so they can show a toast either way.
  */
-export function buildCatchShareUrl(catchId: string): string {
-  return `${window.location.origin}/catches/${catchId}`;
+export function buildTripShareUrl(tripId: string): string {
+  return `${window.location.origin}/trips/${tripId}`;
 }
 
 async function copyWithClipboardApi(text: string): Promise<boolean> {
@@ -48,6 +48,6 @@ export async function copyToClipboard(text: string): Promise<boolean> {
   return copyWithFallback(text);
 }
 
-export async function copyCatchLink(catchId: string): Promise<boolean> {
-  return copyToClipboard(buildCatchShareUrl(catchId));
+export async function copyTripLink(tripId: string): Promise<boolean> {
+  return copyToClipboard(buildTripShareUrl(tripId));
 }

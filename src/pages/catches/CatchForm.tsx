@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useNavigate, useParams } from 'react-router-dom';
 import { catchesApi } from '../../api/catches';
+import { tripsApi } from '../../api/trips';
 import { speciesApi } from '../../api/species';
 import { locationsApi } from '../../api/locations';
 import type { Species } from '../../types/species';
@@ -13,7 +14,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { QuickAddLocationDialog } from '../../components/QuickAddLocationDialog';
@@ -27,12 +27,10 @@ const catchFormSchema = z.object({
   catchDate: z.string().min(1, 'Date is required'),
   weight: z.string(),
   length: z.string(),
-  gearUsed: z.string(),
-  baitUsed: z.string(),
-  fishingMethod: z.string(),
-  notes: z.string(),
-  weatherConditions: z.string(),
-  isPublic: z.boolean(),
+  gearUsed: z.string().max(100, 'At most 100 characters'),
+  baitUsed: z.string().max(100, 'At most 100 characters'),
+  fishingMethod: z.string().max(100, 'At most 100 characters'),
+  notes: z.string().max(1000, 'At most 1000 characters'),
 });
 
 type CatchFormValues = z.infer<typeof catchFormSchema>;
@@ -47,14 +45,17 @@ const emptyValues: CatchFormValues = {
   baitUsed: '',
   fishingMethod: '',
   notes: '',
-  weatherConditions: '',
-  isPublic: false,
 };
 
+/**
+ * Adds a catch to a trip (/trips/:tripId/catches/new) or edits one (/catches/:id/edit).
+ * Visibility and weather belong to the trip, so they're edited on the trip instead.
+ */
 export function CatchForm() {
-  const { id } = useParams();
+  const { id, tripId: tripIdParam } = useParams();
   const isEdit = !!id;
   const navigate = useNavigate();
+  const [tripId, setTripId] = useState<string | undefined>(tripIdParam);
 
   const [species, setSpecies] = useState<Species[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
@@ -70,8 +71,14 @@ export function CatchForm() {
     speciesApi.getAll().then(setSpecies).catch(() => {});
     locationsApi.getMine().then(setLocations).catch(() => {});
 
+    if (!isEdit && tripIdParam) {
+      // Default the catch date to the trip's date.
+      tripsApi.getById(tripIdParam).then((trip) => form.setValue('catchDate', trip.tripDate)).catch(() => {});
+    }
+
     if (isEdit) {
       catchesApi.getById(id!).then((c) => {
+        setTripId(c.tripId);
         form.reset({
           speciesId: c.speciesId,
           locationId: c.locationId ?? '',
@@ -82,8 +89,6 @@ export function CatchForm() {
           baitUsed: c.baitUsed ?? '',
           fishingMethod: c.fishingMethod ?? '',
           notes: c.notes ?? '',
-          weatherConditions: c.weatherConditions ?? '',
-          isPublic: c.isPublic,
         });
       });
     }
@@ -101,8 +106,6 @@ export function CatchForm() {
       baitUsed: values.baitUsed || null,
       fishingMethod: values.fishingMethod || null,
       notes: values.notes || null,
-      weatherConditions: values.weatherConditions || null,
-      isPublic: values.isPublic,
     };
 
     try {
@@ -110,7 +113,8 @@ export function CatchForm() {
       if (isEdit) {
         await catchesApi.update(id!, payload);
       } else {
-        const created = await catchesApi.create(payload);
+        if (!tripId) throw { message: 'Open a trip first, then add a catch to it.' };
+        const created = await tripsApi.addCatch(tripId, payload);
         catchId = created.id;
       }
 
@@ -118,7 +122,7 @@ export function CatchForm() {
         await catchesApi.uploadMedia(catchId!, photo);
       }
 
-      navigate(`/catches/${catchId}`);
+      navigate(tripId ? `/trips/${tripId}` : '/trips');
     } catch (err) {
       const message =
         err && typeof err === 'object' && 'message' in err
@@ -132,7 +136,7 @@ export function CatchForm() {
     <div className="mx-auto max-w-xl">
       <Card>
         <CardHeader>
-          <CardTitle>{isEdit ? 'Edit catch' : 'Log a catch'}</CardTitle>
+          <CardTitle>{isEdit ? 'Edit catch' : 'Add a catch to this trip'}</CardTitle>
         </CardHeader>
         <CardContent>
           <CastDivider />
@@ -171,10 +175,10 @@ export function CatchForm() {
                 name="locationId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Location</FormLabel>
+                    <FormLabel>Location (if different from the trip's)</FormLabel>
                     <Select
                       items={[
-                        { value: NO_LOCATION, label: 'No location / private' },
+                        { value: NO_LOCATION, label: 'Same as the trip' },
                         ...locations.map((l) => ({ value: l.id, label: l.name })),
                         { value: ADD_NEW_LOCATION, label: '+ Add new location' },
                       ]}
@@ -189,11 +193,11 @@ export function CatchForm() {
                     >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="No location / private" />
+                          <SelectValue placeholder="Same as the trip" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value={NO_LOCATION}>No location / private</SelectItem>
+                        <SelectItem value={NO_LOCATION}>Same as the trip</SelectItem>
                         {locations.map((l) => (
                           <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
                         ))}
@@ -219,7 +223,7 @@ export function CatchForm() {
                 name="catchDate"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Date</FormLabel>
+                    <FormLabel>Date caught</FormLabel>
                     <FormControl><Input type="date" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
@@ -289,18 +293,6 @@ export function CatchForm() {
 
               <FormField
                 control={form.control}
-                name="weatherConditions"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Weather</FormLabel>
-                    <FormControl><Input type="text" {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
                 name="notes"
                 render={({ field }) => (
                   <FormItem>
@@ -321,19 +313,6 @@ export function CatchForm() {
                   onChange={(e) => setPhotos(Array.from(e.target.files ?? []))}
                 />
               </FormItem>
-
-              <FormField
-                control={form.control}
-                name="isPublic"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center gap-2">
-                    <FormControl>
-                      <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                    </FormControl>
-                    <FormLabel className="!mt-0">Make this catch public</FormLabel>
-                  </FormItem>
-                )}
-              />
 
               {form.formState.errors.root && (
                 <p className="text-sm text-destructive" role="alert">

@@ -1,6 +1,6 @@
 export interface Comment {
   id: string;
-  catchId: string;
+  tripId: string;
   userId: string;
   userFullName: string | null;
   userAvatarUrl: string | null;

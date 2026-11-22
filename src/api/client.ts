@@ -17,8 +17,11 @@ export function setRefreshTokenGetter(fn: () => string | null) {
 
 // Called after a successful silent refresh so AuthContext can persist
 // the new pair and update its state — client.ts doesn't own storage.
-let onTokenRefreshed: ((token: string, refreshToken: string) => void) | null = null;
-export function setTokenRefreshedHandler(handler: (token: string, refreshToken: string) => void) {
+let onTokenRefreshed: ((token: string, refreshToken: string) => void) | null =
+  null;
+export function setTokenRefreshedHandler(
+  handler: (token: string, refreshToken: string) => void,
+) {
   onTokenRefreshed = handler;
 }
 
@@ -31,19 +34,42 @@ interface ApiError {
 // Endpoints where a 401 means "this specific request failed" (bad credentials,
 // dead refresh token) rather than "your session died" — so skip the refresh
 // dance and never trigger the global sign-out flow for these.
-const NO_REFRESH_PATHS = ['/auth/login', '/auth/register', '/auth/refresh', '/auth/google'];
+const NO_REFRESH_PATHS = [
+  "/auth/login",
+  "/auth/register",
+  "/auth/refresh",
+  "/auth/google",
+];
 // Some endpoints (e.g. AuthController's `Unauthorized("...")` returns) send a
 // bare JSON string, not `{ title: "..." }` — handle both shapes so messages
 // like "This account has been deactivated" actually reach the UI instead of
 // silently falling back to a generic one.
-async function parseErrorMessage(response: Response, fallback: string): Promise<{ message: string; details: unknown }> {
+async function parseErrorMessage(
+  response: Response,
+  fallback: string,
+): Promise<{ message: string; details: unknown }> {
   const body = await response.json().catch(() => null);
 
-  if (typeof body === 'string') return { message: body, details: body };
+  if (typeof body === "string") {
+    return { message: body, details: body };
+  }
+
+  if (Array.isArray(body)) {
+    const identityErrors = body
+      .map((error) => error?.description)
+      .filter((description): description is string => Boolean(description));
+
+    if (identityErrors.length > 0) {
+      return {
+        message: identityErrors.join(" "),
+        details: body,
+      };
+    }
+  }
 
   const message =
     body?.title ??
-    (body?.errors ? Object.values(body.errors).flat().join(' ') : null) ??
+    (body?.errors ? Object.values(body.errors).flat().join(" ") : null) ??
     fallback;
 
   return { message, details: body };
@@ -61,8 +87,8 @@ async function tryRefreshToken(): Promise<string | null> {
     refreshPromise = (async () => {
       try {
         const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ refreshToken }),
         });
         if (!response.ok) return null;
@@ -82,12 +108,12 @@ async function tryRefreshToken(): Promise<string | null> {
 async function request<T>(
   path: string,
   options: RequestInit = {},
-  isRetry = false
+  isRetry = false,
 ): Promise<T> {
   const token = getToken();
 
   const headers: HeadersInit = {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(options.headers || {}),
   };
@@ -106,24 +132,35 @@ async function request<T>(
     }
 
     if (isNoRefreshPath) {
-      const { message, details } = await parseErrorMessage(response, 'Invalid email or password.');
+      const { message, details } = await parseErrorMessage(
+        response,
+        "Invalid email or password.",
+      );
       throw { status: 401, message, details } as ApiError;
     }
 
     onUnauthorized?.();
-    throw { status: 401, message: 'Session expired. Please log in again.' } as ApiError;
+    throw {
+      status: 401,
+      message: "Session expired. Please log in again.",
+    } as ApiError;
   }
 
   if (response.status === 204) {
     return undefined as T;
   }
 
-  const isJson = response.headers.get('content-type')?.includes('application/json');
+  const isJson = response.headers
+    .get("content-type")
+    ?.includes("application/json");
 
   if (!response.ok) {
     const { message, details } = isJson
-      ? await parseErrorMessage(response, 'Something went wrong.')
-      : { message: await response.text().catch(() => 'Something went wrong.'), details: null };
+      ? await parseErrorMessage(response, "Something went wrong.")
+      : {
+          message: await response.text().catch(() => "Something went wrong."),
+          details: null,
+        };
     throw { status: response.status, message, details } as ApiError;
   }
 
@@ -132,20 +169,33 @@ async function request<T>(
 }
 
 export const api = {
-  get: <T>(path: string) => request<T>(path, { method: 'GET' }),
+  get: <T>(path: string) => request<T>(path, { method: "GET" }),
   post: <T>(path: string, data?: unknown) =>
-    request<T>(path, { method: 'POST', body: data ? JSON.stringify(data) : undefined }),
+    request<T>(path, {
+      method: "POST",
+      body: data ? JSON.stringify(data) : undefined,
+    }),
   put: <T>(path: string, data?: unknown) =>
-    request<T>(path, { method: 'PUT', body: data ? JSON.stringify(data) : undefined }),
+    request<T>(path, {
+      method: "PUT",
+      body: data ? JSON.stringify(data) : undefined,
+    }),
   patch: <T>(path: string, data?: unknown) =>
-    request<T>(path, { method: 'PATCH', body: data ? JSON.stringify(data) : undefined }),
-  delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+    request<T>(path, {
+      method: "PATCH",
+      body: data ? JSON.stringify(data) : undefined,
+    }),
+  delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
 };
 
-export async function uploadFile<T>(path: string, formData: FormData, isRetry = false): Promise<T> {
+export async function uploadFile<T>(
+  path: string,
+  formData: FormData,
+  isRetry = false,
+): Promise<T> {
   const token = getToken();
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    method: 'POST',
+    method: "POST",
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: formData,
   });
@@ -156,18 +206,24 @@ export async function uploadFile<T>(path: string, formData: FormData, isRetry = 
       if (newToken) return uploadFile<T>(path, formData, true);
     }
     onUnauthorized?.();
-    throw { status: 401, message: 'Session expired.' } as ApiError;
+    throw { status: 401, message: "Session expired." } as ApiError;
   }
 
   if (!response.ok) {
-    const { message, details } = await parseErrorMessage(response, 'Upload failed.');
+    const { message, details } = await parseErrorMessage(
+      response,
+      "Upload failed.",
+    );
     throw { status: response.status, message, details } as ApiError;
   }
 
   return response.status === 204 ? (undefined as T) : response.json();
 }
 
-export async function downloadFile(path: string, isRetry = false): Promise<{ blob: Blob; fileName: string }> {
+export async function downloadFile(
+  path: string,
+  isRetry = false,
+): Promise<{ blob: Blob; fileName: string }> {
   const token = getToken();
   const response = await fetch(`${API_BASE_URL}${path}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -179,17 +235,20 @@ export async function downloadFile(path: string, isRetry = false): Promise<{ blo
       if (newToken) return downloadFile(path, true);
     }
     onUnauthorized?.();
-    throw { status: 401, message: 'Session expired.' } as ApiError;
+    throw { status: 401, message: "Session expired." } as ApiError;
   }
 
   if (!response.ok) {
-    const { message, details } = await parseErrorMessage(response, 'Export failed.');
+    const { message, details } = await parseErrorMessage(
+      response,
+      "Export failed.",
+    );
     throw { status: response.status, message, details } as ApiError;
   }
 
-  const disposition = response.headers.get('content-disposition');
+  const disposition = response.headers.get("content-disposition");
   const match = disposition?.match(/filename="?([^"]+)"?/);
-  const fileName = match?.[1] ?? 'export';
+  const fileName = match?.[1] ?? "export";
 
   const blob = await response.blob();
   return { blob, fileName };
