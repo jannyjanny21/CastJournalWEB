@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { Heart, Lock, Globe, Plus } from 'lucide-react';
+import { Heart, Lock, Globe, Plus, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { tripsApi } from '../../api/trips';
 import { catchesApi } from '../../api/catches';
@@ -94,6 +94,19 @@ function TripView({ trip, onChange }: { trip: Trip; onChange: (t: Trip) => void 
     }
   };
 
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefreshConditions = async () => {
+    setRefreshing(true);
+    try {
+      onChange(await tripsApi.refreshConditions(trip.id));
+      toast.success('Conditions updated.');
+    } catch {
+      toast.error("Couldn't refresh conditions — try again later.");
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const handleCatchDeleted = (catchId: string) => {
     const catches = trip.catches.filter((c) => c.id !== catchId);
     onChange({ ...trip, catches, catchCount: catches.length });
@@ -131,8 +144,35 @@ function TripView({ trip, onChange }: { trip: Trip; onChange: (t: Trip) => void 
             📍 {trip.locationName ?? 'No location'} &nbsp;·&nbsp; 📅 {formatTripDate(trip.tripDate)}
             {times && <> &nbsp;·&nbsp; 🕒 {times}</>}
           </p>
-          {trip.weatherConditions && <p><strong>Weather:</strong> {trip.weatherConditions}</p>}
+          {isOwner && !trip.endTime && (
+            <p className="text-sm">
+              No end time yet.{' '}
+              <Link to={`/trips/${trip.id}/edit`} className="underline">Add it when you finish</Link>
+              {' '}so the conditions cover your whole session.
+            </p>
+          )}
           {trip.notes && <p><strong>Notes:</strong> {trip.notes}</p>}
+
+          {(trip.weatherConditions || trip.lunarConditions || trip.tidalConditions || isOwner) && (
+            <div className="mt-4 rounded-lg border border-border p-3 text-sm">
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <strong>Conditions when logged</strong>
+                {isOwner && trip.locationId && (
+                  <Button variant="ghost" size="sm" onClick={handleRefreshConditions} disabled={refreshing} className="px-2">
+                    <RefreshCw className="size-4" /> {refreshing ? 'Refreshing…' : 'Refresh'}
+                  </Button>
+                )}
+              </div>
+              <p className="m-0"><strong>Weather:</strong> {trip.weatherConditions ?? '—'}</p>
+              <p className="m-0"><strong>Moon:</strong> {trip.lunarConditions ?? '—'}</p>
+              <p className="m-0"><strong>Tides:</strong> {trip.tidalConditions ?? (trip.locationId ? '—' : 'Add a location to get tides.')}</p>
+              {trip.locationId && (
+                <p className="m-0 mt-1 text-xs text-muted-foreground">
+                  Data: <a href="https://open-meteo.com/" target="_blank" rel="noreferrer" className="underline">Open-Meteo.com</a> (CC BY 4.0) · Moon: SunCalc. Tides are model estimates, not for navigation.
+                </p>
+              )}
+            </div>
+          )}
 
           <h2 className="mt-6 font-heading text-lg">
             Catches {trip.catches.length > 0 && `(${trip.catches.length})`}

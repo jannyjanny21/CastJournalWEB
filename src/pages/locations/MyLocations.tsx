@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { locationsApi } from '../../api/locations';
@@ -11,6 +11,8 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { MapPicker } from '../../components/map/MapPicker';
+import { hasPosition } from '../../components/map/leaflet';
 
 const coordinate = (label: string, min: number, max: number) =>
   z
@@ -47,6 +49,8 @@ export function MyLocations() {
     defaultValues: emptyValues,
   });
 
+  const [watchedLat, watchedLng] = useWatch({ control: form.control, name: ['latitude', 'longitude'] });
+
   const load = () => locationsApi.getMine().then(setLocations).catch(() => {});
   useEffect(() => { load(); }, []);
 
@@ -61,8 +65,9 @@ export function MyLocations() {
     form.reset({
       name: l.name,
       description: l.description ?? '',
-      latitude: l.latitude.toString(),
-      longitude: l.longitude.toString(),
+      // A location saved at 0,0 has no real position: start the picker empty so it gets re-pinned.
+      latitude: hasPosition(l.latitude, l.longitude) ? l.latitude.toString() : '',
+      longitude: hasPosition(l.latitude, l.longitude) ? l.longitude.toString() : '',
       waterType: l.waterType as LocationValues['waterType'],
       isPublic: l.isPublic,
     });
@@ -143,6 +148,22 @@ export function MyLocations() {
                     </FormItem>
                   )}
                 />
+                <div className="space-y-1.5">
+                  <span className="text-sm font-medium">Position *</span>
+                  <MapPicker
+                    key={editingId ?? 'new'}
+                    value={
+                      watchedLat !== '' && watchedLng !== '' && Number.isFinite(Number(watchedLat)) && Number.isFinite(Number(watchedLng))
+                        ? { lat: Number(watchedLat), lng: Number(watchedLng) }
+                        : null
+                    }
+                    onChange={(p) => {
+                      form.setValue('latitude', String(p.lat), { shouldValidate: true, shouldDirty: true });
+                      form.setValue('longitude', String(p.lng), { shouldValidate: true, shouldDirty: true });
+                    }}
+                  />
+                </div>
+                {/* Exact coordinates can still be typed, e.g. from a GPS device. */}
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -222,10 +243,13 @@ export function MyLocations() {
             <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <strong className="block break-words">📍 {l.name}</strong>
+                {!hasPosition(l.latitude, l.longitude) && (
+                  <span className="text-xs text-destructive">No map position yet — edit to place it on the map.</span>
+                )}
                 {l.description && <div className="text-sm text-muted-foreground">{l.description}</div>}
               </div>
                <div className="flex items-center gap-3 shrink-0">
-+               <span className="text-sm text-muted-foreground whitespace-nowrap">{l.isPublic ? 'Public' : 'Private'}</span>
+               <span className="text-sm text-muted-foreground whitespace-nowrap">{l.isPublic ? 'Public' : 'Private'}</span>
                 <Button variant="outline" size="sm" onClick={() => startEdit(l)}>Edit</Button>
                 <Button variant="destructive" size="sm" onClick={() => handleDelete(l)}>Delete</Button>
               </div>

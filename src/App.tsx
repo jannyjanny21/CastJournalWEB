@@ -10,6 +10,7 @@ import { CatchDetail } from './pages/catches/CatchDetail';
 import { MyTrips } from './pages/trips/MyTrips';
 import { TripForm } from './pages/trips/TripForm';
 import { TripDetail } from './pages/trips/TripDetail';
+import { MyMap } from './pages/map/MyMap';
 import { MyLocations } from './pages/locations/MyLocations';
 import { MyProfile } from './pages/profile/MyProfile';
 import { Feed } from './pages/feed/Feed';
@@ -51,6 +52,7 @@ function App() {
         {/* Everything else keeps the narrow shell */}
         <Route element={<Layout />}>
           <Route path="/trips" element={<MyTrips />} />
+          <Route path="/map" element={<MyMap />} />
           <Route path="/trips/new" element={<TripForm />} />
           <Route path="/trips/:id" element={<TripDetail />} />
           <Route path="/trips/:id/edit" element={<TripForm />} />
