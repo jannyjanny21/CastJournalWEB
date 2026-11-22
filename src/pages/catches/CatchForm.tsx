@@ -17,6 +17,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { QuickAddLocationDialog } from '../../components/QuickAddLocationDialog';
+import { CategorySelect } from '../../components/CategorySelect';
+import { useCatchCategories } from '../../hooks/useCatchCategories';
 
 const NO_LOCATION = '__none__';
 const ADD_NEW_LOCATION = '__add_new__';
@@ -61,6 +63,7 @@ export function CatchForm() {
   const [locations, setLocations] = useState<Location[]>([]);
   const [photos, setPhotos] = useState<File[]>([]);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const categories = useCatchCategories();
 
   const form = useForm<CatchFormValues>({
     resolver: zodResolver(catchFormSchema),
@@ -261,7 +264,7 @@ export function CatchForm() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Gear used</FormLabel>
-                    <FormControl><Input type="text" {...field} /></FormControl>
+                    <CategorySelect value={field.value} onChange={field.onChange} options={categories.gear} />
                     <FormMessage />
                   </FormItem>
                 )}
@@ -273,7 +276,7 @@ export function CatchForm() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Bait used</FormLabel>
-                    <FormControl><Input type="text" {...field} /></FormControl>
+                    <CategorySelect value={field.value} onChange={field.onChange} options={categories.bait} />
                     <FormMessage />
                   </FormItem>
                 )}
@@ -285,7 +288,7 @@ export function CatchForm() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Method</FormLabel>
-                    <FormControl><Input type="text" {...field} /></FormControl>
+                    <CategorySelect value={field.value} onChange={field.onChange} options={categories.method} />
                     <FormMessage />
                   </FormItem>
                 )}

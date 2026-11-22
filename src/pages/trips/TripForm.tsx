@@ -22,6 +22,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { QuickAddLocationDialog } from '../../components/QuickAddLocationDialog';
+import { CategorySelect } from '../../components/CategorySelect';
+import { useCatchCategories } from '../../hooks/useCatchCategories';
 
 const NO_LOCATION = '__none__';
 const ADD_NEW_LOCATION = '__add_new__';
@@ -100,6 +102,7 @@ export function TripForm() {
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   // Photos per catch row, keyed by the row's useFieldArray id.
   const [photos, setPhotos] = useState<Record<string, File[]>>({});
+  const categories = useCatchCategories();
 
   const form = useForm<TripFormValues>({
     resolver: zodResolver(tripFormSchema),
@@ -402,7 +405,11 @@ export function TripForm() {
                             render={({ field }) => (
                               <FormItem>
                                 <FormLabel>{name === 'gearUsed' ? 'Gear' : name === 'baitUsed' ? 'Bait' : 'Method'}</FormLabel>
-                                <FormControl><Input type="text" {...field} /></FormControl>
+                                <CategorySelect
+                                  value={field.value}
+                                  onChange={field.onChange}
+                                  options={name === 'gearUsed' ? categories.gear : name === 'baitUsed' ? categories.bait : categories.method}
+                                />
                                 <FormMessage />
                               </FormItem>
                             )}
