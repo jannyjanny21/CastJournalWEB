@@ -18,6 +18,13 @@ export const DEFAULT_MARKER_ICON = L.icon({
 });
 L.Marker.prototype.options.icon = DEFAULT_MARKER_ICON;
 
+/** Same pin, greyed out (see .cj-marker-muted in index.css): a saved spot with no trips yet. */
+export const MUTED_MARKER_ICON = L.icon({
+  ...DEFAULT_MARKER_ICON.options,
+  iconUrl: markerIcon,
+  className: 'cj-marker-muted',
+});
+
 /**
  * Raster tiles. OpenStreetMap's own servers are fine for development and a capstone demo, but their
  * usage policy asks heavy users to move elsewhere: set VITE_MAP_TILE_URL (and attribution) to another

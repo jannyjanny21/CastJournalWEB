@@ -5,7 +5,7 @@ import { formatDistanceToNow } from 'date-fns';
 import type { Trip } from '../types/trip';
 import { useTripLike } from '../hooks/useTripLike';
 import { resolveMediaUrl } from '../utils/mediaUrl';
-import { formatTripDate, timeRange, tripCoverMedia, tripHeading } from '../utils/trip';
+import { formatTripDates, timeRange, tripCoverMedia, tripHeading } from '../utils/trip';
 import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { PostDialog } from './PostDialog';
@@ -59,7 +59,7 @@ export function TripCard({ item }: { item: Trip }) {
             <strong>{tripHeading(item)}</strong>
           </Link>
           <div className="text-mono text-sm text-muted-foreground mb-2">
-            {[item.locationName, formatTripDate(item.tripDate), times].filter(Boolean).join(' · ')}
+            {[item.locationName, formatTripDates(item), times].filter(Boolean).join(' · ')}
           </div>
 
           {item.catches.length > 0 && (

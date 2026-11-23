@@ -31,6 +31,8 @@ import { LandingPage } from './pages/landing/LandingPage';
 import { ForgotPassword } from './pages/auth/ForgotPassword';
 import { ResetPassword } from './pages/auth/ResetPassword';
 import { PrivacyPolicy } from './pages/PrivacyPolicy';
+import { Dashboard } from './pages/dashboard/Dashboard';
+import { NotFound } from './pages/NotFound';
 
 
 
@@ -38,7 +40,8 @@ import { PrivacyPolicy } from './pages/PrivacyPolicy';
 function App() {
   return (
    <Routes>
-       <Route path="/" element={<LandingPage />} />
+      {/* One "/" (B-23): the landing page when signed out; it sends signed-in anglers to /dashboard. */}
+      <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -49,12 +52,12 @@ function App() {
       <Route element={<ProtectedRoute />}>
         {/* Feed gets the wider shell */}
         <Route element={<FeedLayout />}>
-          <Route path="/" element={<Feed />} />
           <Route path="/feed" element={<Feed />} />
         </Route>
 
         {/* Everything else keeps the narrow shell */}
         <Route element={<Layout />}>
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/trips" element={<MyTrips />} />
           <Route path="/map" element={<MyMap />} />
           <Route path="/trips/new" element={<TripForm />} />
@@ -90,6 +93,8 @@ function App() {
           </Route>
         </Route>
       </Route>
+      {/* Unknown URLs (B-23). */}
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 }

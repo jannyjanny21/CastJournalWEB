@@ -34,7 +34,7 @@ export function Login() {
     return () => clearSessionExpiredMessage();
   }, [clearSessionExpiredMessage]);
 
-  const from = (location.state as { from?: Location })?.from?.pathname ?? '/feed';
+  const from = (location.state as { from?: Location })?.from?.pathname ?? '/dashboard';
 
   const onSubmit = async (values: LoginValues) => {
     try {

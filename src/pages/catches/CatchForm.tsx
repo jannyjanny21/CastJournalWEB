@@ -11,6 +11,8 @@ import { MediaPicker } from '../../components/MediaPicker';
 import { MediaManager } from '../../components/MediaManager';
 import { MAX_MEDIA_PER_CATCH } from '../../utils/media';
 import type { CatchMedia } from '../../types/catch';
+import type { Trip } from '../../types/trip';
+import { MAX_TRIP_DAYS, addDaysToDate, lastTripDay, toTimeInput } from '../../utils/trip';
 import { locationsApi } from '../../api/locations';
 import type { Species } from '../../types/species';
 import type { Location } from '../../types/location';
@@ -58,6 +60,18 @@ const emptyValues: CatchFormValues = {
  * Adds a catch to a trip (/trips/:tripId/catches/new) or edits one (/catches/:id/edit).
  * Visibility and weather belong to the trip, so they're edited on the trip instead.
  */
+/** The days a catch can be dated: the trip's days (so far, while still fishing). Matches the API. */
+function rangeOf(trip: Trip): { min: string; max: string } {
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  if (!trip.endTime) {
+    const cap = addDaysToDate(trip.tripDate, MAX_TRIP_DAYS - 1);
+    const max = todayStr < cap ? todayStr : cap;
+    return { min: trip.tripDate, max: max < trip.tripDate ? trip.tripDate : max };
+  }
+  return { min: trip.tripDate, max: lastTripDay(trip.tripDate, trip.endDate, toTimeInput(trip.startTime), toTimeInput(trip.endTime)) };
+}
+
 export function CatchForm() {
   const { id, tripId: tripIdParam } = useParams();
   const isEdit = !!id;
@@ -67,6 +81,7 @@ export function CatchForm() {
   const [species, setSpecies] = useState<Species[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [photos, setPhotos] = useState<File[]>([]);
+  const [tripRange, setTripRange] = useState<{ min: string; max: string } | null>(null);
   const [existingMedia, setExistingMedia] = useState<CatchMedia[]>([]);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const categories = useCatchCategories();
@@ -82,12 +97,16 @@ export function CatchForm() {
 
     if (!isEdit && tripIdParam) {
       // Default the catch date to the trip's date.
-      tripsApi.getById(tripIdParam).then((trip) => form.setValue('catchDate', trip.tripDate)).catch(() => {});
+      tripsApi.getById(tripIdParam).then((trip) => {
+        form.setValue('catchDate', trip.tripDate);
+        setTripRange(rangeOf(trip));
+      }).catch(() => {});
     }
 
     if (isEdit) {
       catchesApi.getById(id!).then((c) => {
         setTripId(c.tripId);
+        tripsApi.getById(c.tripId).then((trip) => setTripRange(rangeOf(trip))).catch(() => {});
         setExistingMedia(c.media);
         form.reset({
           speciesId: c.speciesId,
@@ -143,7 +162,7 @@ export function CatchForm() {
   };
 
   return (
-    <div className="mx-auto max-w-xl">
+    <div className="mx-auto max-w-3xl">
       <Card>
         <CardHeader>
           <CardTitle>{isEdit ? 'Edit catch' : 'Add a catch to this trip'}</CardTitle>
@@ -235,7 +254,10 @@ export function CatchForm() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Date caught</FormLabel>
-                    <FormControl><Input type="date" {...field} /></FormControl>
+                    <FormControl><Input type="date" min={tripRange?.min} max={tripRange?.max} {...field} /></FormControl>
+                    {tripRange && tripRange.min !== tripRange.max && (
+                      <p className="m-0 text-xs text-muted-foreground">Any day of the trip.</p>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}

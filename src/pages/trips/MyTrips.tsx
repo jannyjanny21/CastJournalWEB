@@ -4,7 +4,7 @@ import { Globe, Lock } from 'lucide-react';
 import { tripsApi } from '../../api/trips';
 import type { PagedResult } from '../../types/catch';
 import type { Trip } from '../../types/trip';
-import { formatTripDate, tripHeading } from '../../utils/trip';
+import { formatTripDates, tripHeading } from '../../utils/trip';
 import { PageHeader } from '../../components/PageHeader';
 import { CatchRowSkeleton } from '../../components/CatchRowSkeleton';
 import { Card, CardContent } from '@/components/ui/card';
@@ -103,7 +103,7 @@ export function MyTrips() {
                     <div className="min-w-0">
                       <strong className="block truncate">{tripHeading(t)}</strong>
                       <div className="font-mono text-sm text-muted-foreground">
-                        {formatTripDate(t.tripDate)} · {t.locationName ?? 'No location'} · {t.catchCount}{' '}
+                        {formatTripDates(t)} · {t.locationName ?? 'No location'} · {t.catchCount}{' '}
                         {t.catchCount === 1 ? 'catch' : 'catches'}
                       </div>
                     </div>

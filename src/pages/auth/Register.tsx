@@ -41,7 +41,7 @@ export function Register() {
   const onSubmit = async (values: RegisterValues) => {
     try {
       await register(values);
-      navigate('/feed');
+      navigate('/dashboard');
     } catch (err) {
       const message =
         err && typeof err === 'object' && 'message' in err
@@ -163,7 +163,7 @@ export function Register() {
             <GoogleSignInButton
               text="signup_with"
               acceptPrivacyPolicy
-              onSuccess={() => navigate('/feed')}
+              onSuccess={() => navigate('/dashboard')}
               onError={(message) => form.setError('root', { message })}
             />
           ) : (

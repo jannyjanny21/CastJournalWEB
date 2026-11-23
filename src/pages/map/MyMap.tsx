@@ -1,21 +1,23 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CircleMarker, MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
+import { CircleMarker, MapContainer, Marker, Popup, TileLayer, Tooltip, useMap, useMapEvents } from 'react-leaflet';
 import { LatLngBounds, type Map as LeafletMap } from 'leaflet';
 import { LocateFixed, Crosshair } from 'lucide-react';
 import { tripsApi } from '../../api/trips';
 import { locationsApi } from '../../api/locations';
 import type { NearbyLocation, TripMapLocation } from '../../types/conditions';
 import type { ConditionsQuery } from '../../api/environment';
-import { DEFAULT_CENTER, DEFAULT_ZOOM, TILE_ATTRIBUTION, TILE_URL } from '../../components/map/leaflet';
-import { formatTripDate } from '../../utils/trip';
+import { DEFAULT_CENTER, DEFAULT_ZOOM, MUTED_MARKER_ICON, TILE_ATTRIBUTION, TILE_URL, hasPosition } from '../../components/map/leaflet';
+import type { Location } from '../../types/location';
+import DEFAULT_PIN from 'leaflet/dist/images/marker-icon.png';
+import { formatTripDates } from '../../utils/trip';
 import { PageHeader } from '../../components/PageHeader';
 import { ConditionsPanel } from '../../components/ConditionsPanel';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
-/** Zooms to fit the trip pins once they load. */
-function FitToTrips({ points }: { points: TripMapLocation[] }) {
+/** Zooms to fit the pins once they load. */
+function FitToTrips({ points }: { points: { latitude: number; longitude: number }[] }) {
   const map = useMap();
   useEffect(() => {
     if (points.length === 0) return;
@@ -44,6 +46,7 @@ const tripLabel = (t: TripMapLocation['trips'][number]) =>
 export function MyMap() {
   const [map, setMap] = useState<LeafletMap | null>(null);
   const [trips, setTrips] = useState<TripMapLocation[]>([]);
+  const [myLocations, setMyLocations] = useState<Location[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [nearest, setNearest] = useState<{ from: [number, number]; items: NearbyLocation[] } | null>(null);
   const [nearestMessage, setNearestMessage] = useState<string | null>(null);
@@ -51,7 +54,13 @@ export function MyMap() {
 
   useEffect(() => {
     tripsApi.getMap().then(setTrips).catch(() => setLoadError('Could not load your trips.'));
+    locationsApi.getMine().then(setMyLocations).catch(() => { /* trip pins still show */ });
   }, []);
+
+  // Saved spots you haven't logged a trip at yet: shown as grey pins so every spot is on the map.
+  const tripLocationIds = new Set(trips.map((t) => t.locationId));
+  const emptySpots = myLocations.filter((l) => !tripLocationIds.has(l.id) && hasPosition(l.latitude, l.longitude));
+  const fitPoints = trips.length > 0 ? trips : emptySpots;
 
   const findNearest = async (lat: number, lng: number) => {
     setNearestMessage(null);
@@ -101,7 +110,7 @@ export function MyMap() {
             <MapContainer center={DEFAULT_CENTER} zoom={DEFAULT_ZOOM} style={{ height: '100%', width: '100%' }} scrollWheelZoom>
               <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} />
               <MapRef onReady={setMap} />
-              <FitToTrips points={trips} />
+              <FitToTrips points={fitPoints} />
               <ClickForConditions
                 onPick={(lat, lng) =>
                   setConditionsFor({ label: `${lat.toFixed(3)}, ${lng.toFixed(3)}`, query: { lat, lng } })}
@@ -114,7 +123,7 @@ export function MyMap() {
                     <ul className="m-0 mt-1 list-none p-0">
                       {loc.trips.slice(0, 6).map((t) => (
                         <li key={t.id}>
-                          <Link to={`/trips/${t.id}`}>{formatTripDate(t.tripDate)} · {tripLabel(t)}</Link>
+                          <Link to={`/trips/${t.id}`}>{formatTripDates(t)} · {tripLabel(t)}</Link>
                         </li>
                       ))}
                       {loc.trips.length > 6 && <li>+{loc.trips.length - 6} more</li>}
@@ -130,14 +139,39 @@ export function MyMap() {
                 </Marker>
               ))}
 
-              {nearest?.items.map((n) => (
+              {emptySpots.map((l) => (
+                <Marker key={l.id} position={[l.latitude, l.longitude]} icon={MUTED_MARKER_ICON}>
+                  <Tooltip direction="top" offset={[0, -36]}>{l.name}</Tooltip>
+                  <Popup>
+                    <strong>{l.name}</strong>
+                    <p className="m-0 mt-1 text-xs">No trips logged here yet.</p>
+                    <div className="mt-1 flex flex-col items-start gap-0.5">
+                      <button
+                        type="button"
+                        className="text-xs underline"
+                        onClick={() => setConditionsFor({ label: l.name, query: { locationId: l.id } })}
+                      >
+                        Today's conditions here
+                      </button>
+                      <Link to="/trips/new" className="text-xs">Log a trip</Link>
+                    </div>
+                  </Popup>
+                </Marker>
+              ))}
+
+              {/* Nearest-spot results: a numbered ring matching the list beside the map. */}
+              {nearest?.items.map((n, i) => (
                 <CircleMarker
                   key={n.id}
                   center={[n.latitude, n.longitude]}
-                  radius={9}
-                  pathOptions={{ color: '#2563eb', weight: 2, fillOpacity: 0.35 }}
+                  radius={12}
+                  pathOptions={{ color: '#2563eb', weight: 2.5, fillOpacity: 0.15 }}
                   eventHandlers={{ click: () => setConditionsFor({ label: n.name, query: { locationId: n.id } }) }}
-                />
+                >
+                  <Tooltip direction="right" offset={[12, 0]} permanent className="cj-nearest-label">
+                    {i + 1}. {n.name}
+                  </Tooltip>
+                </CircleMarker>
               ))}
             </MapContainer>
           </div>
@@ -146,10 +180,17 @@ export function MyMap() {
             <Button variant="outline" onClick={nearestFromGps}><LocateFixed className="size-4" /> Nearest to me</Button>
             <Button variant="outline" onClick={nearestFromCentre}><Crosshair className="size-4" /> Nearest to map centre</Button>
           </div>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground" aria-label="Map legend">
+            <span className="flex items-center gap-1"><img src={DEFAULT_PIN} alt="" className="h-4" /> Spot with your trips</span>
+            <span className="flex items-center gap-1"><img src={DEFAULT_PIN} alt="" className="h-4 opacity-80 grayscale" /> Saved spot, no trips yet</span>
+            <span className="flex items-center gap-1">
+              <span className="inline-block size-3.5 rounded-full border-2 border-[#2563eb] bg-[#2563eb]/15" /> Nearest-spot result
+            </span>
+          </div>
           {loadError && <p className="text-sm text-destructive">{loadError}</p>}
           {!loadError && trips.length === 0 && (
             <p className="text-sm text-muted-foreground">
-              Trips with a location appear here as pins. Tap anywhere on the map to see conditions there.
+              Trips appear here as pins at their location. Tap anywhere on the map to see conditions there.
             </p>
           )}
         </div>

@@ -297,3 +297,18 @@ input::-ms-reveal,
 input::-ms-clear {
   display: none;
 }
+
+/* My Map: saved spots without trips use the standard pin, greyed out. */
+.leaflet-marker-icon.cj-marker-muted {
+  filter: grayscale(1) brightness(1.2);
+  opacity: 0.8;
+}
+
+/* Labels next to the nearest-spot rings on My Map. */
+.leaflet-tooltip.cj-nearest-label {
+  padding: 1px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #1e3a8a;
+  border-color: #2563eb;
+}
