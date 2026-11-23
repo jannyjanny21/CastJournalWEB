@@ -7,6 +7,10 @@ import { catchesApi } from '../../api/catches';
 import { tripsApi } from '../../api/trips';
 import { speciesApi } from '../../api/species';
 import { RequestSpeciesLink } from '../../components/RequestSpeciesDialog';
+import { MediaPicker } from '../../components/MediaPicker';
+import { MediaManager } from '../../components/MediaManager';
+import { MAX_MEDIA_PER_CATCH } from '../../utils/media';
+import type { CatchMedia } from '../../types/catch';
 import { locationsApi } from '../../api/locations';
 import type { Species } from '../../types/species';
 import type { Location } from '../../types/location';
@@ -63,6 +67,7 @@ export function CatchForm() {
   const [species, setSpecies] = useState<Species[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [photos, setPhotos] = useState<File[]>([]);
+  const [existingMedia, setExistingMedia] = useState<CatchMedia[]>([]);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const categories = useCatchCategories();
 
@@ -83,6 +88,7 @@ export function CatchForm() {
     if (isEdit) {
       catchesApi.getById(id!).then((c) => {
         setTripId(c.tripId);
+        setExistingMedia(c.media);
         form.reset({
           speciesId: c.speciesId,
           locationId: c.locationId ?? '',
@@ -309,14 +315,17 @@ export function CatchForm() {
               />
 
               <FormItem>
-                <FormLabel htmlFor="photos">Photos</FormLabel>
-                <Input
-                  id="photos"
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={(e) => setPhotos(Array.from(e.target.files ?? []))}
+                <FormLabel>Photos & videos</FormLabel>
+                {isEdit && <MediaManager catchId={id!} media={existingMedia} onChange={setExistingMedia} />}
+                <MediaPicker
+                  idPrefix="catch"
+                  files={photos}
+                  onChange={setPhotos}
+                  maxCount={MAX_MEDIA_PER_CATCH - existingMedia.length}
                 />
+                {isEdit && photos.length > 0 && (
+                  <p className="m-0 text-xs text-muted-foreground">New ones are added after the existing ones when you save.</p>
+                )}
               </FormItem>
 
               {form.formState.errors.root && (

@@ -1,5 +1,3 @@
-import { useState } from 'react';
-import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useNavigate, Link } from 'react-router-dom';
@@ -8,10 +6,11 @@ import { CastDivider } from '../../components/CastDivider';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { useForm, useWatch } from 'react-hook-form';
 import { AuthLayout } from '@/components/auth/AuthLayout';
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
-import { CircleX } from 'lucide-react';
 
 
 const registerSchema = z.object({
@@ -22,6 +21,7 @@ const registerSchema = z.object({
     .max(30, 'Username must be 30 characters or fewer'),
   email: z.string().min(1, 'Email is required').email('Enter a valid email'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
+  acceptPrivacyPolicy: z.boolean().refine((v) => v, 'Please read and accept the privacy notice to continue'),
 });
 
 type RegisterValues = z.infer<typeof registerSchema>;
@@ -29,42 +29,24 @@ type RegisterValues = z.infer<typeof registerSchema>;
 export function Register() {
   const { register } = useAuth();
   const navigate = useNavigate();
-  const [serverPasswordErrors, setServerPasswordErrors] = useState<string[]>([]);
 
   const form = useForm<RegisterValues>({
     resolver: zodResolver(registerSchema),
-    defaultValues: { fullName: '', userName: '', email: '', password: '' },
+    defaultValues: { fullName: '', userName: '', email: '', password: '', acceptPrivacyPolicy: false },
   });
 
-  const onSubmit = async (values: RegisterValues) => {
-    setServerPasswordErrors([]);
+  const accepted = useWatch({ control: form.control, name: 'acceptPrivacyPolicy' });
 
+  const onSubmit = async (values: RegisterValues) => {
     try {
       await register(values);
       navigate('/feed');
     } catch (err) {
-      const error = err as {
-        message?: string;
-        details?: unknown;
-      };
-
-      const identityErrors = Array.isArray(error.details)
-        ? error.details
-          .map((item) => item?.description)
-          .filter((message): message is string => Boolean(message))
-        : [];
-
-      if (identityErrors.length > 0) {
-        setServerPasswordErrors(identityErrors);
-        form.setError('password', {
-          type: 'server',
-          message: 'Please meet all password requirements.',
-        });
-      } else {
-        form.setError('root', {
-          message: error.message ?? 'Something went wrong. Please try again.',
-        });
-      }
+      const message =
+        err && typeof err === 'object' && 'message' in err
+          ? String((err as { message: unknown }).message)
+          : 'Something went wrong. Please try again.';
+      form.setError('root', { message });
     }
   };
 
@@ -130,29 +112,30 @@ export function Register() {
                   <FormItem>
                     <FormLabel>Password</FormLabel>
                     <FormControl>
-                      <Input
-                        type="password"
-                        autoComplete="new-password"
-                        {...field}
-                        onChange={(event) => {
-                          setServerPasswordErrors([]);
-                          form.clearErrors('password');
-                          field.onChange(event);
-                        }}
-                      />
+                      <Input type="password" autoComplete="new-password" {...field} />
                     </FormControl>
-                    {serverPasswordErrors.length > 0 ? (
-                      <ul className="space-y-1 text-sm italic text-destructive" role="alert">
-                        {serverPasswordErrors.map((message) => (
-                          <li key={message} className="flex items-start gap-1.5">
-                            <CircleX aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-                            <span>{message}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <FormMessage />
-                    )}
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="acceptPrivacyPolicy"
+                render={({ field }) => (
+                  <FormItem>
+                    <div className="flex items-start gap-2">
+                      <FormControl>
+                        <Checkbox checked={field.value} onCheckedChange={(c) => field.onChange(c === true)} className="mt-0.5" />
+                      </FormControl>
+                      <FormLabel className="!mt-0 text-sm font-normal leading-snug">
+                        I have read the{' '}
+                        <Link to="/privacy" target="_blank" className="underline underline-offset-4">privacy notice</Link>.
+                        I understand CastJournal stores my account details, trips, catches, photos, videos and
+                        fishing spots, and that a trip is only visible to other anglers after I publish it.
+                      </FormLabel>
+                    </div>
+                    <FormMessage />
                   </FormItem>
                 )}
               />
@@ -168,18 +151,25 @@ export function Register() {
               </Button>
             </form>
           </Form>
-
+          
           <div className="my-5 flex items-center gap-3 text-xs text-muted-foreground">
             <span className="h-px flex-1 bg-border" />
             or
             <span className="h-px flex-1 bg-border" />
           </div>
 
-          <GoogleSignInButton
-            text="signup_with"
-            onSuccess={() => navigate('/feed')}
-            onError={(message) => form.setError('root', { message })}
-          />
+          {accepted ? (
+            <GoogleSignInButton
+              text="signup_with"
+              acceptPrivacyPolicy
+              onSuccess={() => navigate('/feed')}
+              onError={(message) => form.setError('root', { message })}
+            />
+          ) : (
+            <p className="text-center text-sm text-muted-foreground">
+              Tick the privacy notice above to sign up with Google.
+            </p>
+          )}
           <p className="mt-5 text-sm text-muted-foreground">
             Already have an account?{' '}
             <Link to="/login" className="text-foreground underline underline-offset-4">

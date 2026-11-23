@@ -7,9 +7,11 @@ interface GoogleSignInButtonProps {
   onSuccess?: () => void;
   onError?: (message: string) => void;
   text?: 'signin_with' | 'signup_with';
+  /** Register page: the privacy notice was accepted, so a new account may be created (F-19). */
+  acceptPrivacyPolicy?: boolean;
 }
 
-export function GoogleSignInButton({ onSuccess, onError, text = 'signin_with' }: GoogleSignInButtonProps) {
+export function GoogleSignInButton({ onSuccess, onError, text = 'signin_with', acceptPrivacyPolicy = false }: GoogleSignInButtonProps) {
   const { googleLogin } = useAuth();
   const containerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLDivElement>(null);
@@ -36,7 +38,7 @@ export function GoogleSignInButton({ onSuccess, onError, text = 'signin_with' }:
         client_id: GOOGLE_CLIENT_ID,
         callback: async (response) => {
           try {
-            await googleLogin(response.credential);
+            await googleLogin(response.credential, acceptPrivacyPolicy);
             onSuccess?.();
           } catch (err) {
             const message =
@@ -73,7 +75,7 @@ export function GoogleSignInButton({ onSuccess, onError, text = 'signin_with' }:
       cancelled = true;
       if (pollId) clearInterval(pollId);
     };
-  }, [googleLogin, onSuccess, onError, text]);
+  }, [googleLogin, onSuccess, onError, text, acceptPrivacyPolicy]);
 
   return (
     <div ref={containerRef} className="flex w-full justify-center">

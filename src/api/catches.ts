@@ -27,8 +27,12 @@ export const catchesApi = {
     const formData = new FormData();
     formData.append('catchId', catchId);
     formData.append('file', file);
-    return uploadFile<{ message: string }>('/media/upload', formData);
+    return uploadFile<CatchMedia>('/media/upload', formData);
   },
 
   getMedia: (catchId: string) => api.get<CatchMedia[]>(`/media/catch/${catchId}`),
+  deleteMedia: (mediaId: string) => api.delete<void>(`/media/${mediaId}`),
+  /** Every media ID of the catch, in the new display order; the first is the cover (FR-10). */
+  reorderMedia: (catchId: string, mediaIds: string[]) =>
+    api.patch<CatchMedia[]>('/media/reorder', { catchId, mediaIds }),
 };

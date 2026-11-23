@@ -43,6 +43,8 @@ function App() {
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      {/* Public: people read it before signing up (F-19), and Google sign-in needs a public policy URL. */}
+      <Route path="/privacy" element={<PrivacyPolicy />} />
 
       <Route element={<ProtectedRoute />}>
         {/* Feed gets the wider shell */}
@@ -74,7 +76,6 @@ function App() {
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/export" element={<ExportPage />} />
 
-           <Route path="/privacy" element={<PrivacyPolicy />} />
 
           <Route element={<AdminRoute />}>
             <Route path="/admin" element={<AdminLayout />}>
