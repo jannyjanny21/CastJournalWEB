@@ -7,6 +7,8 @@ import type { Trip } from '../../types/trip';
 import { formatTripDates, tripHeading } from '../../utils/trip';
 import { PageHeader } from '../../components/PageHeader';
 import { CatchRowSkeleton } from '../../components/CatchRowSkeleton';
+import { PendingTrips } from '../../components/PendingTrips';
+import { useOutbox } from '../../offline/outbox';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,6 +20,8 @@ export function MyTrips() {
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Reload the list when a trip logged offline finishes uploading.
+  const { uploadedVersion } = useOutbox();
 
   useEffect(() => {
     let cancelled = false;
@@ -42,7 +46,7 @@ export function MyTrips() {
 
     load();
     return () => { cancelled = true; };
-  }, [startDate, endDate, page]);
+  }, [startDate, endDate, page, uploadedVersion]);
 
   const filtered = !!(startDate || endDate);
 
@@ -70,6 +74,7 @@ export function MyTrips() {
       </PageHeader>
 
       <div className="pt-6">
+        <PendingTrips />
         {isLoading && (
           <div className="flex flex-col gap-3">
             <CatchRowSkeleton />

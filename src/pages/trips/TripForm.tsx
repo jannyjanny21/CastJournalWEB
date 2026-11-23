@@ -5,7 +5,6 @@ import { z } from 'zod';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Plus, Trash2 } from 'lucide-react';
 import { tripsApi } from '../../api/trips';
-import { catchesApi } from '../../api/catches';
 import { speciesApi } from '../../api/species';
 import { RequestSpeciesLink } from '../../components/RequestSpeciesDialog';
 import { MediaPicker } from '../../components/MediaPicker';
@@ -30,6 +29,10 @@ import { QuickAddLocationDialog } from '../../components/QuickAddLocationDialog'
 import { CategorySelect } from '../../components/CategorySelect';
 import { useCatchCategories } from '../../hooks/useCatchCategories';
 import { ConditionsPanel } from '../../components/ConditionsPanel';
+import { newId, outbox, syncOne, type OutboxEntry } from '../../offline/outbox';
+import { useOfflineStatus } from '../../offline/status';
+import { useAuth } from '../../context/useAuth';
+import { toast } from 'sonner';
 import { to12h } from '../../utils/time';
 
 const ADD_NEW_LOCATION = '__add_new__';
@@ -131,6 +134,8 @@ export function TripForm() {
   // Photos per catch row, keyed by the row's useFieldArray id.
   const [photos, setPhotos] = useState<Record<string, File[]>>({});
   const categories = useCatchCategories();
+  const { user } = useAuth();
+  const { online } = useOfflineStatus();
 
   const form = useForm<TripFormValues>({
     resolver: zodResolver(tripFormSchema),
@@ -221,23 +226,59 @@ export function TripForm() {
         return;
       }
 
-      // Create the trip, then add each catch in order so each one's photos go to the right catch.
-      const trip = await tripsApi.create({ ...tripPayload, catches: [] });
+      // New trips go through the device's upload queue (F-13): saved here first, with photos and
+      // videos, then uploaded trip → catches → files. Online that happens right away; offline it waits.
+      const entry: OutboxEntry = {
+        id: newId(),
+        userId: user!.id,
+        createdAt: 0, // stamped by outbox.add
+        trip: tripPayload,
+        locationName: locations.find((l) => l.id === values.locationId)?.name ?? null,
+        publishAfterSave: values.publishAfterSave,
+        status: 'pending',
+        catches: values.catches.map((c, i) => ({
+          clientId: newId(),
+          payload: toCatchPayload(c, values.tripDate, days),
+          media: (photos[fields[i].id] ?? []).map((file) => ({
+            clientId: newId(),
+            file,
+            name: file.name,
+            type: file.type,
+            uploaded: false,
+          })),
+        })),
+      };
+
       try {
-        for (let i = 0; i < values.catches.length; i++) {
-          const created = await tripsApi.addCatch(trip.id, toCatchPayload(values.catches[i], values.tripDate, days));
-          for (const file of photos[fields[i].id] ?? []) {
-            await catchesApi.uploadMedia(created.id, file);
-          }
-        }
-      } catch (err) {
-        // The trip exists; send the angler there so they can finish adding catches.
-        navigate(`/trips/${trip.id}`, { state: { warning: `Trip saved, but not every catch or photo was: ${errorMessage(err)}` } });
+        await outbox.add(entry);
+      } catch {
+        form.setError('root', { message: "Couldn't save on this device (storage full or blocked). Free some space or try online." });
+        return;
+      }
+
+      const result = await syncOne(entry.id);
+      if (result.state === 'offline') {
+        toast.success('Trip saved on this device.', {
+          description: "It will upload by itself when you're back online.",
+        });
+        navigate('/trips');
+        return;
+      }
+      if (result.state === 'failed') {
+        // The server refused the trip itself (e.g. the location was removed): fix it here.
+        await outbox.remove(entry.id);
+        form.setError('root', { message: result.error });
+        return;
+      }
+      if (result.state === 'attention') {
+        // The trip exists; send the angler there to finish what didn't go through.
+        await outbox.remove(entry.id);
+        navigate(`/trips/${result.tripId}`, { state: { warning: `Trip saved, but not every catch or photo was: ${result.error}` } });
         return;
       }
 
       // "Upload now" (FR-43): open the publish preview straight away; publishing still needs the angler's OK (FR-45).
-      navigate(`/trips/${trip.id}`, { state: values.publishAfterSave ? { openPublish: true } : undefined });
+      navigate(`/trips/${result.tripId}`, { state: values.publishAfterSave ? { openPublish: true } : undefined });
     } catch (err) {
       form.setError('root', { message: errorMessage(err) });
     }
@@ -433,7 +474,12 @@ export function TripForm() {
                 )}
               />
 
-              {watchedLocation && (
+              {watchedLocation && !online && (
+                <p className="m-0 rounded-lg border border-dashed border-border p-3 text-sm text-muted-foreground">
+                  You're offline. Weather, moon and tides will be added when the trip uploads.
+                </p>
+              )}
+              {watchedLocation && online && (
                 // Weather, moon and tides are saved with the trip for the middle of the session (FR-16).
                 watchedStart && watchedDate && moment ? (
                   <div className="space-y-2">
@@ -667,12 +713,19 @@ export function TripForm() {
                 </p>
               )}
 
+              {!isEdit && !online && (
+                <p className="m-0 text-sm text-muted-foreground">
+                  You're offline: the trip, its catches and photos/videos will be saved on this device and upload
+                  automatically when you're back online.
+                </p>
+              )}
+
               <div className="flex gap-3">
                 <Button type="button" variant="outline" onClick={() => navigate(-1)}>
                   Cancel
                 </Button>
                 <Button type="submit" disabled={form.formState.isSubmitting} className="flex-1">
-                  {form.formState.isSubmitting ? 'Saving...' : 'Save trip'}
+                  {form.formState.isSubmitting ? 'Saving...' : !isEdit && !online ? 'Save on this device' : 'Save trip'}
                 </Button>
               </div>
             </form>

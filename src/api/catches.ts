@@ -23,10 +23,12 @@ export const catchesApi = {
   update: (id: string, payload: CreateCatchPayload) => api.put<void>(`/catches/${id}`, payload),
   remove: (id: string) => api.delete<void>(`/catches/${id}`),
 
-  uploadMedia: (catchId: string, file: File) => {
+  /** clientId: made on the device, so a retried upload doesn't add the file twice (F-13). */
+  uploadMedia: (catchId: string, file: Blob, clientId?: string, fileName?: string) => {
     const formData = new FormData();
     formData.append('catchId', catchId);
-    formData.append('file', file);
+    formData.append('file', file, fileName ?? (file instanceof File ? file.name : 'upload'));
+    if (clientId) formData.append('clientId', clientId);
     return uploadFile<CatchMedia>('/media/upload', formData);
   },
 

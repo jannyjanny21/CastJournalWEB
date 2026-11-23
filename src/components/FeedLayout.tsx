@@ -2,12 +2,14 @@ import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { FollowSidebar } from './FollowSidebar';
 import { SearchBar } from './SearchBar';
+import { OfflineBanner } from './OfflineBanner';
 
 export function FeedLayout() {
   return (
     <div className="grid min-h-screen grid-cols-1 md:grid-cols-[auto_1fr_auto]">
       <Sidebar />
       <main className="min-w-0">
+        <OfflineBanner />
         <div className="mx-auto w-full max-w-4xl px-6 py-8">
           <Outlet />
         </div>

@@ -10,15 +10,21 @@ import {
 } from '../api/client';
 import type { AuthResponse, CurrentUser, DecodedToken } from '../types/auth';
 import { AuthContext } from './auth-context';
+import { clearSavedResponses, pruneSavedResponses, setReadCacheUser } from '../offline/readCache';
 
 const TOKEN_KEY = 'castjournal_token';
 const REFRESH_TOKEN_KEY = 'castjournal_refresh_token';
 const ROLE_CLAIM = 'http://schemas.microsoft.com/ws/2008/06/identity/claims/role';
 
-function decodeUser(token: string): CurrentUser | null {
+/**
+ * The signed-in angler from the access token. An expired token still counts when a refresh token is
+ * kept: the next request refreshes it, and offline (F-13) the angler stays signed in and can keep
+ * reading saved trips instead of being sent to the login page.
+ */
+function decodeUser(token: string, allowExpired = !!localStorage.getItem(REFRESH_TOKEN_KEY)): CurrentUser | null {
   try {
     const decoded = jwtDecode<DecodedToken>(token);
-    if (decoded.exp * 1000 < Date.now()) return null;
+    if (decoded.exp * 1000 < Date.now() && !allowExpired) return null;
 
     const rawRole = decoded[ROLE_CLAIM] ?? decoded.role;
     const roles = !rawRole ? [] : Array.isArray(rawRole) ? rawRole : [rawRole];
@@ -46,13 +52,19 @@ function readStoredToken(): string | null {
   return stored;
 }
 
+// Drop offline copies older than 30 days once per page load.
+void pruneSavedResponses();
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(readStoredToken);
   const [sessionExpiredMessage, setSessionExpiredMessage] = useState<string | null>(null);
 
   const user = useMemo(() => (token ? decodeUser(token) : null), [token]);
+  setReadCacheUser(user?.id ?? null);
 
   const clearSession = (expired = false) => {
+    // Saved offline copies belong to this angler; don't leave them for the next person on this device.
+    void clearSavedResponses();
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(REFRESH_TOKEN_KEY);
     setToken(null);

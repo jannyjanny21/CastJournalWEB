@@ -5,6 +5,7 @@ import type { Comment } from '../types/comment';
 import { resolveMediaUrl } from '../utils/mediaUrl';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
+import { isOfflineError } from '../api/client';
 
 
 function CommentRow({
@@ -163,8 +164,13 @@ export function CommentSection({
       setTotalCount(next);
       onCountChange?.(next);
       setNewComment('');
-    } catch {
-      toast.error("Couldn't post your comment — try again.");
+    } catch (err) {
+      // Comments need a connection (F-13, option 1); the text stays in the box to post later.
+      toast.error(
+        isOfflineError(err)
+          ? "You're offline. Your comment is still in the box — post it when you're back online."
+          : "Couldn't post your comment — try again.",
+      );
     } finally {
       setPosting(false);
     }
