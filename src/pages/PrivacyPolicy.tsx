@@ -2,7 +2,7 @@ export function PrivacyPolicy() {
   return (
     <div className="mx-auto max-w-3xl px-6 py-12 text-foreground">
       <h1 className="mb-2 text-3xl font-semibold">Privacy Policy</h1>
-      <p className="mb-8 text-sm text-muted-foreground">Last updated: September 2026</p>
+      <p className="mb-8 text-sm text-muted-foreground">Last updated: November 2026</p>
 
       <p className="mb-6">
         CastJournal ("we", "our", "the app") is a capstone project for logging and
@@ -18,13 +18,34 @@ export function PrivacyPolicy() {
           Google account.
         </li>
         <li>
-          <strong>Content you add:</strong> catch records (species, weight, length,
-          location, photos, notes), comments, and follow relationships you create in
-          the app.
+          <strong>Content you add:</strong> fishing trips and their catches (species,
+          weight, length, gear, bait, method, photos, videos, notes), your saved fishing
+          locations with their map positions, comments, likes and follow relationships.
         </li>
         <li>
           <strong>Usage data:</strong> basic activity needed to run features like
           notifications and search.
+        </li>
+      </ul>
+
+      <h2 className="mb-2 mt-8 text-xl font-semibold">What other anglers can see</h2>
+      <ul className="mb-6 list-disc space-y-2 pl-6">
+        <li>
+          <strong>Trips are private until you publish them.</strong> Before publishing you see
+          exactly what will be shown, and you can withdraw a published trip at any time.
+        </li>
+        <li>
+          <strong>Private fishing spots stay hidden.</strong> When you publish a trip that uses a
+          private spot, other anglers see "Location hidden" unless you explicitly choose to show it.
+        </li>
+        <li>
+          <strong>Your profile:</strong> your name, username, profile picture and bio are visible to
+          other signed-in anglers, along with your published trips.
+        </li>
+        <li>
+          <strong>Weather, moon and tide conditions</strong> for your trips are looked up from
+          Open-Meteo using the spot's approximate position (rounded to about 1 km). No account
+          details are sent.
         </li>
       </ul>
 
@@ -38,7 +59,8 @@ export function PrivacyPolicy() {
 
       <h2 className="mb-2 mt-8 text-xl font-semibold">How we use your information</h2>
       <p className="mb-6">
-        Your information is used to operate core features of the app: authentication,
+        You are asked to accept this notice when you create an account, and the time you
+        accepted it is recorded. Your information is used to operate core features of the app: authentication,
         displaying your catches and profile, the community feed, search, and
         analytics. We do not sell your data or share it with third parties for
         advertising.

@@ -19,6 +19,9 @@ function resolveTarget(n: Notification): string | null {
       return `/catches/${n.relatedEntityId}`;
     case 'User':
       return `/anglers/${n.relatedEntityId}`;
+    case 'Species':
+      // Species request approved/rejected (FR-42).
+      return '/species/requests';
     default:
       return null;
   }

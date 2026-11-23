@@ -290,3 +290,10 @@ label {
     @apply font-sans;
   }
 }
+
+/* Edge/IE draw their own reveal (eye) and clear (x) buttons inside password fields,
+   which doubled up with PasswordInput's own toggle. Hide the built-in ones. */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}

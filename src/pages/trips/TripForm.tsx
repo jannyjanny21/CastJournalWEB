@@ -7,6 +7,9 @@ import { Plus, Trash2 } from 'lucide-react';
 import { tripsApi } from '../../api/trips';
 import { catchesApi } from '../../api/catches';
 import { speciesApi } from '../../api/species';
+import { RequestSpeciesLink } from '../../components/RequestSpeciesDialog';
+import { MediaPicker } from '../../components/MediaPicker';
+import { MAX_MEDIA_PER_CATCH } from '../../utils/media';
 import { locationsApi } from '../../api/locations';
 import type { Species } from '../../types/species';
 import type { Location } from '../../types/location';
@@ -420,6 +423,7 @@ export function TripForm() {
                               </SelectContent>
                             </Select>
                             <FormMessage />
+                            <RequestSpeciesLink />
                           </FormItem>
                         )}
                       />
@@ -483,16 +487,12 @@ export function TripForm() {
                       />
 
                       <FormItem>
-                        <FormLabel htmlFor={`photos-${row.id}`}>Photos</FormLabel>
-                        <Input
-                          id={`photos-${row.id}`}
-                          type="file"
-                          accept="image/*"
-                          multiple
-                          onChange={(e) => {
-                            const files = Array.from(e.target.files ?? []);
-                            setPhotos((prev) => ({ ...prev, [row.id]: files }));
-                          }}
+                        <FormLabel>Photos & videos</FormLabel>
+                        <MediaPicker
+                          idPrefix={`catch-${row.id}`}
+                          files={photos[row.id] ?? []}
+                          onChange={(files) => setPhotos((prev) => ({ ...prev, [row.id]: files }))}
+                          maxCount={MAX_MEDIA_PER_CATCH}
                         />
                       </FormItem>
                     </div>

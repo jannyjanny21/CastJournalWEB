@@ -6,6 +6,8 @@ interface RegisterPayload {
   email: string;
   fullName: string;
   password: string;
+  /** Privacy notice accepted (F-19). */
+  acceptPrivacyPolicy: boolean;
 }
 
 export interface AuthContextValue {
@@ -13,7 +15,8 @@ export interface AuthContextValue {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (payload: RegisterPayload) => Promise<void>;
-    googleLogin: (credential: string) => Promise<void>;   // add this
+  /** acceptPrivacyPolicy is sent from the Register page; needed only when this creates a new account. */
+  googleLogin: (credential: string, acceptPrivacyPolicy?: boolean) => Promise<void>;
 
   logout: () => void;
   sessionExpiredMessage: string | null;

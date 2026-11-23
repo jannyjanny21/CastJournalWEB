@@ -81,8 +81,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const res = await api.post<AuthResponse>('/auth/login', { email, password });
     applyAuthResponse(res);
   };
-  const googleLogin = async (credential: string) => {
-    const res = await api.post<AuthResponse>('/auth/google', { credential });
+  const googleLogin = async (credential: string, acceptPrivacyPolicy = false) => {
+    const res = await api.post<AuthResponse>('/auth/google', { credential, acceptPrivacyPolicy });
     applyAuthResponse(res);
   };
 
@@ -91,6 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     email: string;
     fullName: string;
     password: string;
+    acceptPrivacyPolicy: boolean;
   }) => {
     const res = await api.post<AuthResponse>('/auth/register', payload);
     applyAuthResponse(res);

@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 const tabs = [
   { to: '/admin/users', label: 'Users' },
   { to: '/admin/species', label: 'Species' },
+  { to: '/admin/categories', label: 'Categories' },
   { to: '/admin/reports', label: 'Reports' },
   { to: '/admin/audit-logs', label: 'Audit Logs' },
   { to: '/admin/backup', label: 'Backup' },

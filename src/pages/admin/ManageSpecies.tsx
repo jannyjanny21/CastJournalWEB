@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useReactTable, getCoreRowModel, flexRender, type ColumnDef } from '@tanstack/react-table';
 import { speciesApi } from '../../api/species';
+import { SpeciesRequestsQueue } from './SpeciesRequestsQueue';
 import { adminSpeciesApi } from '../../api/admin/species';
 import type { Species } from '../../types/species';
 import { Button } from '@/components/ui/button';
@@ -76,9 +77,16 @@ export function ManageSpecies() {
   };
 
   const handleDelete = async (s: Species) => {
-    if (!confirm(`Delete "${s.commonName}"? This may affect existing catches.`)) return;
-    await adminSpeciesApi.remove(s.id);
-    load();
+    if (!confirm(`Delete "${s.commonName}"?`)) return;
+    try {
+      await adminSpeciesApi.remove(s.id);
+      load();
+    } catch (err) {
+      // 409 when catches still use it.
+      alert(err && typeof err === 'object' && 'status' in err && (err as { status: number }).status === 409
+        ? `"${s.commonName}" is used by existing catches, so it can't be deleted.`
+        : "Couldn't delete this species — try again.");
+    }
   };
 
   const columns: ColumnDef<Species>[] = [
@@ -115,7 +123,10 @@ export function ManageSpecies() {
 
   return (
     <div>
-      <div className="mb-4 flex justify-end">
+      <SpeciesRequestsQueue onApproved={load} />
+
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="m-0 font-heading text-lg">Species list ({species.length})</h2>
         <Button onClick={startCreate}>+ Add species</Button>
       </div>
 
