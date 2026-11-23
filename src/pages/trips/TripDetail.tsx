@@ -10,7 +10,7 @@ import { useAuth } from '../../context/useAuth';
 import { useTripLike } from '../../hooks/useTripLike';
 import { CastDivider } from '../../components/CastDivider';
 import { resolveMediaUrl } from '../../utils/mediaUrl';
-import { formatTripDate, timeRange, tripHeading } from '../../utils/trip';
+import { formatTripDates, timeRange, tripHeading } from '../../utils/trip';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CommentSection } from '../../components/CommentSection';
@@ -82,6 +82,27 @@ function CatchBlock({ item, isOwner, tripLocationId, onDeleted }: {
   );
 }
 
+/** One conditions field; a multi-day trip stores one "Sat, Nov 22: …" line per day. */
+function ConditionsLine({ label, text }: { label: string; text: string }) {
+  const lines = text.split('\n').filter(Boolean);
+  if (lines.length <= 1) return <p className="m-0"><strong>{label}:</strong> {text}</p>;
+  return (
+    <div>
+      <strong>{label}:</strong>
+      <ul className="m-0 list-none space-y-0.5 p-0 pl-3">
+        {lines.map((line) => {
+          const split = line.indexOf(': ');
+          return (
+            <li key={line}>
+              {split > 0 ? <><span className="font-medium">{line.slice(0, split)}</span>{line.slice(split)}</> : line}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 function TripView({ trip, onChange, openPublish }: { trip: Trip; onChange: (t: Trip) => void; openPublish: boolean }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -144,7 +165,7 @@ function TripView({ trip, onChange, openPublish }: { trip: Trip; onChange: (t: T
   };
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="mx-auto max-w-4xl">
       <Card>
         <CardContent>
           <Link to={isOwner ? '/trips' : '/feed'} className="text-sm text-muted-foreground hover:text-foreground">
@@ -188,7 +209,7 @@ function TripView({ trip, onChange, openPublish }: { trip: Trip; onChange: (t: T
           <CastDivider />
 
           <p className="text-muted-foreground">
-            📍 {trip.locationHidden ? 'Location hidden by the angler' : trip.locationName ?? 'No location'} &nbsp;·&nbsp; 📅 {formatTripDate(trip.tripDate)}
+            📍 {trip.locationHidden ? 'Location hidden by the angler' : trip.locationName ?? 'No location'} &nbsp;·&nbsp; 📅 {formatTripDates(trip)}
             {times && <> &nbsp;·&nbsp; 🕒 {times}</>}
           </p>
           {isOwner && !trip.endTime && (
@@ -211,9 +232,9 @@ function TripView({ trip, onChange, openPublish }: { trip: Trip; onChange: (t: T
                   </Button>
                 )}
               </div>
-              <p className="m-0"><strong>Weather:</strong> {trip.weatherConditions ?? '—'}</p>
-              <p className="m-0"><strong>Moon:</strong> {trip.lunarConditions ?? '—'}</p>
-              <p className="m-0"><strong>Tides:</strong> {trip.tidalConditions ?? (trip.locationId ? '—' : 'Add a location to get tides.')}</p>
+              <ConditionsLine label="Weather" text={trip.weatherConditions ?? '—'} />
+              <ConditionsLine label="Moon" text={trip.lunarConditions ?? '—'} />
+              <ConditionsLine label="Tides" text={trip.tidalConditions ?? (trip.locationId ? '—' : 'Add a location to get tides.')} />
               {trip.locationId && (
                 <p className="m-0 mt-1 text-xs text-muted-foreground">
                   Data: <a href="https://open-meteo.com/" target="_blank" rel="noreferrer" className="underline">Open-Meteo.com</a> (CC BY 4.0) · Moon: SunCalc. Tides are model estimates, not for navigation.

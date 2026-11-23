@@ -56,7 +56,7 @@ export function PublicProfile() {
   const isOwnProfile = currentUser?.id === userId;
 
   return (
-    <div>
+    <div className="mx-auto max-w-4xl">
       <Card className="mb-6">
         <CardContent>
           <div className="flex items-center gap-4">

@@ -23,6 +23,8 @@ export interface Trip {
   tripDate: string;
   startTime: string | null;
   endTime: string | null;
+  /** Last day of a multi-day trip; null for a single session. */
+  endDate: string | null;
   notes: string | null;
   weatherConditions: string | null;
   lunarConditions: string | null;
@@ -42,10 +44,12 @@ export interface UpdateTripPayload {
   tripDate: string;
   startTime: string | null;
   endTime: string | null;
+  /** Multi-day trips: the last day (up to 7 days). Null for a single session or while still fishing. */
+  endDate?: string | null;
   locationId: string | null;
   notes: string | null;
   weatherConditions: string | null;
-  /** Logging a session that's still going (today only), so there's no end time yet. */
+  /** Logging a trip that's still going (started within the last 7 days), so there's no end time yet. */
   stillFishing?: boolean;
 }
 

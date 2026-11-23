@@ -1,6 +1,6 @@
 import type { Trip } from '../types/trip';
 import { resolveMediaUrl } from '../utils/mediaUrl';
-import { formatTripDate, tripCoverMedia, tripHeading } from '../utils/trip';
+import { formatTripDates, tripCoverMedia, tripHeading } from '../utils/trip';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Heart } from 'lucide-react';
@@ -50,7 +50,7 @@ export function PostDialog({
         <div>
           <strong className="text-base">{tripHeading(item)}</strong>
           <div className="text-mono text-sm text-muted-foreground">
-            {[item.locationName, formatTripDate(item.tripDate)].filter(Boolean).join(' · ')}
+            {[item.locationName, formatTripDates(item)].filter(Boolean).join(' · ')}
           </div>
         </div>
 

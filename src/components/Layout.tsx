@@ -8,7 +8,9 @@ export function Layout() {
     // layout on desktop, same as before.
     <div className="flex min-h-screen flex-col md:flex-row">
       <Sidebar />
-      <main className="mx-auto w-full max-w-3xl px-6 py-8">
+      {/* Wide on desktop for dashboards, tables and maps. Forms and reading pages (trip/catch forms,
+          trip detail, profile, export) cap their own width, so they stay comfortable to read. */}
+      <main className="mx-auto w-full min-w-0 max-w-6xl px-6 py-8 xl:px-10">
         <Outlet />
       </main>
     </div>

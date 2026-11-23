@@ -26,7 +26,7 @@ export function LandingPage() {
   const { isAuthenticated } = useAuth();
 
   // Already signed in? Skip the pitch and go straight to the feed.
-  if (isAuthenticated) return <Navigate to="/feed" replace />;
+  if (isAuthenticated) return <Navigate to="/dashboard" replace />;
 
   return (
     <div className="min-h-screen overflow-x-hidden">
@@ -90,7 +90,8 @@ export function LandingPage() {
         </section>
       </section>       
       <footer className="border-t border-border py-5 text-center text-sm text-muted-foreground">
-        © {new Date().getFullYear()} CastJournal by Clrns V
+        © {new Date().getFullYear()} CastJournal by Clrns V ·{' '}
+        <Link to="/privacy" className="underline underline-offset-4 hover:text-foreground">Privacy notice</Link>
       </footer>
     </div>
   );

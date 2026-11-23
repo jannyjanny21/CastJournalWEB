@@ -6,12 +6,13 @@ import { resolveMediaUrl } from '../utils/mediaUrl';
 import { NotificationBell } from './NotificationBell';
 import { Button } from './ui/button';
 import {
-  LayoutGrid, Fish, Sailboat, Map as MapIcon, MapPin, BarChart3, Download, ShieldCheck,
-  LogOut, ChevronsLeft, ChevronsRight, Menu,
+  LayoutGrid, LayoutDashboard, Fish, Sailboat, Map as MapIcon, MapPin, BarChart3, Download, ShieldCheck,
+  LogOut, ChevronsLeft, ChevronsRight, Menu, Shield,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const mainLinks = [
+  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/feed', label: 'Feed', icon: LayoutGrid },
   { to: '/trips', label: 'My Trips', icon: Sailboat },
   { to: '/map', label: 'My Map', icon: MapIcon },
@@ -132,6 +133,19 @@ export function Sidebar() {
             </>
           )}
         </nav>
+
+        <Link
+          to="/privacy"
+          onClick={closeMobile}
+          title={!expanded ? 'Privacy notice' : undefined}
+          className={cn(
+            'mb-1 flex items-center gap-2.5 rounded-md px-2 py-2 text-sm text-muted-foreground no-underline transition-colors hover:bg-muted hover:text-foreground',
+            !expanded && 'justify-center px-0'
+          )}
+        >
+          <Shield className="size-4.5 shrink-0" />
+          {expanded && 'Privacy notice'}
+        </Link>
 
         {/* Collapse toggle is a desktop-only concept — mobile drawer is always full-width */}
         <button

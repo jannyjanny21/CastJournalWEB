@@ -88,7 +88,7 @@ export function PublishDialog({
             </div>
 
             {needsChoice && (
-              <fieldset className="space-y-2 rounded-lg border border-brass/40 bg-brass/5 p-3">
+              <fieldset className="space-y-2 rounded-lg border border-[color:var(--color-brass)]/40 bg-[color:var(--color-brass)]/5 p-3">
                 <legend className="px-1 font-medium">
                   This trip uses your private {privateSpots.length === 1 ? 'spot' : 'spots'}: {spotNames}
                 </legend>

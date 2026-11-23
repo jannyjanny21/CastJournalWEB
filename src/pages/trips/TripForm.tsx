@@ -15,7 +15,9 @@ import type { Species } from '../../types/species';
 import type { Location } from '../../types/location';
 import type { CreateCatchPayload } from '../../types/catch';
 import type { UpdateTripPayload } from '../../types/trip';
-import { addDaysToDate, conditionsMoment, fromTimeInput, nowTimeInput, toTimeInput } from '../../utils/trip';
+import {
+  MAX_TRIP_DAYS, addDaysToDate, conditionMoments, fromTimeInput, lastTripDay, nowTimeInput, toTimeInput, tripDays,
+} from '../../utils/trip';
 import { CastDivider } from '../../components/CastDivider';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -28,6 +30,7 @@ import { QuickAddLocationDialog } from '../../components/QuickAddLocationDialog'
 import { CategorySelect } from '../../components/CategorySelect';
 import { useCatchCategories } from '../../hooks/useCatchCategories';
 import { ConditionsPanel } from '../../components/ConditionsPanel';
+import { to12h } from '../../utils/time';
 
 const ADD_NEW_LOCATION = '__add_new__';
 
@@ -43,6 +46,8 @@ const catchSchema = z.object({
   baitUsed: z.string().max(100, 'At most 100 characters'),
   fishingMethod: z.string().max(100, 'At most 100 characters'),
   notes: z.string().max(1000, 'At most 1000 characters'),
+  /** Which day of a multi-day or overnight trip; '' = the first day. */
+  day: z.string(),
 });
 
 const tripFormSchema = z
@@ -52,26 +57,39 @@ const tripFormSchema = z
     startTime: z.string().min(1, 'Start time is required'),
     endTime: z.string(),
     stillFishing: z.boolean(),
+    /** Camping/offshore trips over several days (up to 7). */
+    multiDay: z.boolean(),
+    endDate: z.string(),
     locationId: z.string().min(1, 'Location is required'),
     weatherConditions: z.string().max(500, 'At most 500 characters'),
     notes: z.string().max(1000, 'At most 1000 characters'),
     publishAfterSave: z.boolean(),
     catches: z.array(catchSchema),
   })
-  // FR-6: start and end time are part of a trip. The end can follow later only while still fishing today.
-  // An end earlier than the start is allowed: the session ran past midnight.
+  // FR-6: start and end time are part of a trip. The end can follow later while still fishing.
+  // Without an end date, an end earlier than the start means the session ran past midnight.
   .superRefine((v, ctx) => {
     if (!v.endTime && !v.stillFishing)
       ctx.addIssue({ code: 'custom', path: ['endTime'], message: 'End time is required (or tick "Still fishing")' });
-    if (!v.endTime && v.stillFishing && v.tripDate !== todayLocal())
-      ctx.addIssue({ code: 'custom', path: ['endTime'], message: '"Still fishing" is only for today\'s trip' });
+    if (!v.endTime && v.stillFishing && v.tripDate < addDaysToDate(todayLocal(), -(MAX_TRIP_DAYS - 1)))
+      ctx.addIssue({ code: 'custom', path: ['endTime'], message: `A trip can last up to ${MAX_TRIP_DAYS} days — add the end time` });
+    if (v.multiDay && !v.stillFishing) {
+      if (!v.endDate)
+        ctx.addIssue({ code: 'custom', path: ['endDate'], message: 'End date is required' });
+      else if (v.endDate <= v.tripDate)
+        ctx.addIssue({ code: 'custom', path: ['endDate'], message: 'Must be after the start date' });
+      else if (v.endDate > addDaysToDate(v.tripDate, MAX_TRIP_DAYS - 1))
+        ctx.addIssue({ code: 'custom', path: ['endDate'], message: `Up to ${MAX_TRIP_DAYS} days` });
+      else if (v.endDate > todayLocal())
+        ctx.addIssue({ code: 'custom', path: ['endDate'], message: 'Can\'t be in the future' });
+    }
   });
 
 type TripFormValues = z.infer<typeof tripFormSchema>;
 type CatchValues = z.infer<typeof catchSchema>;
 
 const emptyCatch: CatchValues = {
-  speciesId: '', weight: '', length: '', gearUsed: '', baitUsed: '', fishingMethod: '', notes: '',
+  speciesId: '', weight: '', length: '', gearUsed: '', baitUsed: '', fishingMethod: '', notes: '', day: '',
 };
 
 function todayLocal(): string {
@@ -79,11 +97,13 @@ function todayLocal(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function toCatchPayload(c: CatchValues, tripDate: string): CreateCatchPayload {
+function toCatchPayload(c: CatchValues, tripDate: string, days: string[]): CreateCatchPayload {
+  // A day that no longer belongs to the trip (dates changed after picking it) falls back to day 1.
+  const day = c.day && days.includes(c.day) ? c.day : tripDate;
   return {
     speciesId: c.speciesId,
     locationId: null, // uses the trip's location; a different spot per catch can be set when editing the catch
-    catchDate: new Date(tripDate).toISOString(),
+    catchDate: new Date(day).toISOString(),
     weight: c.weight ? parseFloat(c.weight) : null,
     length: c.length ? parseFloat(c.length) : null,
     gearUsed: c.gearUsed || null,
@@ -120,6 +140,8 @@ export function TripForm() {
       startTime: '',
       endTime: '',
       stillFishing: false,
+      multiDay: false,
+      endDate: '',
       locationId: '',
       weatherConditions: '',
       notes: '',
@@ -129,14 +151,30 @@ export function TripForm() {
   });
 
   const { fields, append, remove } = useFieldArray({ control: form.control, name: 'catches' });
-  const [watchedLocation, watchedDate, watchedStart, watchedEnd, watchedStillFishing] = useWatch({
+  const [watchedLocation, watchedDate, watchedStart, watchedEnd, watchedStillFishing, watchedMultiDay, watchedEndDate] = useWatch({
     control: form.control,
-    name: ['locationId', 'tripDate', 'startTime', 'endTime', 'stillFishing'],
+    name: ['locationId', 'tripDate', 'startTime', 'endTime', 'stillFishing', 'multiDay', 'endDate'],
   });
+  const today = todayLocal();
+  const isToday = watchedDate === today;
+  // Still fishing: for a trip started within the last 7 days (camping and offshore trips run on).
+  const canStillFish = !!watchedDate && watchedDate >= addDaysToDate(today, -(MAX_TRIP_DAYS - 1)) && watchedDate <= today;
+  const effectiveEndDate = watchedMultiDay && !watchedStillFishing && watchedEndDate > watchedDate ? watchedEndDate : null;
+
   // Same rule as the API, so the preview shows exactly what gets saved.
-  const moment = conditionsMoment(watchedStart, watchedEnd);
-  const previewDate = watchedDate ? addDaysToDate(watchedDate, moment.dayOffset) : '';
-  const isToday = watchedDate === todayLocal();
+  const moments = conditionMoments(watchedDate, effectiveEndDate, watchedStart, watchedStillFishing ? '' : watchedEnd);
+  // Multi-day preview: one tab per saved day. Clamp in case the trip got shorter.
+  const [previewDay, setPreviewDay] = useState(0);
+  const dayIndex = Math.min(previewDay, Math.max(moments.length - 1, 0));
+  const moment = moments[dayIndex];
+
+  // Days a catch can be dated: the whole trip (so far, while still fishing).
+  const lastDay = watchedStillFishing
+    ? (watchedMultiDay ? (today < addDaysToDate(watchedDate, MAX_TRIP_DAYS - 1) ? today : addDaysToDate(watchedDate, MAX_TRIP_DAYS - 1)) : watchedDate)
+    : lastTripDay(watchedDate, effectiveEndDate, watchedStart, watchedEnd);
+  const days = watchedDate ? tripDays(watchedDate, lastDay < watchedDate ? watchedDate : lastDay) : [];
+  const dayLabel = (d: string, i: number) =>
+    `Day ${i + 1} · ${new Date(`${d}T00:00`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}`;
 
   useEffect(() => {
     speciesApi.getAll().then(setSpecies).catch(() => {});
@@ -149,7 +187,9 @@ export function TripForm() {
           tripDate: t.tripDate,
           startTime: toTimeInput(t.startTime),
           endTime: toTimeInput(t.endTime),
-          stillFishing: !t.endTime && t.tripDate === todayLocal(),
+          stillFishing: !t.endTime,
+          multiDay: !!t.endDate,
+          endDate: t.endDate ?? '',
           locationId: t.locationId ?? '',
           weatherConditions: t.weatherConditions ?? '',
           notes: t.notes ?? '',
@@ -168,6 +208,7 @@ export function TripForm() {
       startTime: fromTimeInput(values.startTime),
       endTime: fromTimeInput(values.endTime),
       stillFishing: values.stillFishing && !values.endTime,
+      endDate: values.multiDay && !values.stillFishing && values.endDate ? values.endDate : null,
       locationId: values.locationId || null,
       notes: values.notes || null,
       weatherConditions: values.weatherConditions || null,
@@ -184,7 +225,7 @@ export function TripForm() {
       const trip = await tripsApi.create({ ...tripPayload, catches: [] });
       try {
         for (let i = 0; i < values.catches.length; i++) {
-          const created = await tripsApi.addCatch(trip.id, toCatchPayload(values.catches[i], values.tripDate));
+          const created = await tripsApi.addCatch(trip.id, toCatchPayload(values.catches[i], values.tripDate, days));
           for (const file of photos[fields[i].id] ?? []) {
             await catchesApi.uploadMedia(created.id, file);
           }
@@ -205,7 +246,7 @@ export function TripForm() {
   const speciesItems = species.map((s) => ({ value: s.id, label: s.commonName }));
 
   return (
-    <div className="mx-auto max-w-xl">
+    <div className="mx-auto max-w-3xl">
       <Card>
         <CardHeader>
           <CardTitle>{isEdit ? 'Edit trip' : 'Log a trip'}</CardTitle>
@@ -227,13 +268,13 @@ export function TripForm() {
                 )}
               />
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className={watchedMultiDay && !watchedStillFishing ? 'grid grid-cols-2 gap-4 sm:grid-cols-4' : 'grid grid-cols-3 gap-4'}>
                 <FormField
                   control={form.control}
                   name="tripDate"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Date *</FormLabel>
+                      <FormLabel>{watchedMultiDay ? 'Start date *' : 'Date *'}</FormLabel>
                       <FormControl><Input type="date" max={todayLocal()} {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
@@ -250,12 +291,32 @@ export function TripForm() {
                     </FormItem>
                   )}
                 />
+                {watchedMultiDay && !watchedStillFishing && (
+                  <FormField
+                    control={form.control}
+                    name="endDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>End date *</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="date"
+                            min={watchedDate ? addDaysToDate(watchedDate, 1) : undefined}
+                            max={watchedDate && addDaysToDate(watchedDate, MAX_TRIP_DAYS - 1) < today ? addDaysToDate(watchedDate, MAX_TRIP_DAYS - 1) : today}
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
                 <FormField
                   control={form.control}
                   name="endTime"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>End {watchedStillFishing ? '' : '*'}</FormLabel>
+                      <FormLabel>{watchedMultiDay ? 'End time' : 'End'} {watchedStillFishing ? '' : '*'}</FormLabel>
                       <FormControl><Input type="time" disabled={watchedStillFishing} {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
@@ -274,7 +335,26 @@ export function TripForm() {
                     Start now
                   </Button>
                 )}
-                {isToday && (
+                <FormField
+                  control={form.control}
+                  name="multiDay"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center gap-2">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={(checked) => {
+                            field.onChange(checked === true);
+                            if (checked !== true) form.setValue('endDate', '');
+                            form.trigger(['endDate', 'endTime']);
+                          }}
+                        />
+                      </FormControl>
+                      <FormLabel className="!mt-0 font-normal">Multi-day trip (camping, offshore)</FormLabel>
+                    </FormItem>
+                  )}
+                />
+                {canStillFish && (
                   <FormField
                     control={form.control}
                     name="stillFishing"
@@ -285,8 +365,11 @@ export function TripForm() {
                             checked={field.value}
                             onCheckedChange={(checked) => {
                               field.onChange(checked === true);
-                              if (checked === true) form.setValue('endTime', '');
-                              form.trigger('endTime');
+                              if (checked === true) {
+                                form.setValue('endTime', '');
+                                form.setValue('endDate', '');
+                              }
+                              form.trigger(['endTime', 'endDate']);
                             }}
                           />
                         </FormControl>
@@ -295,7 +378,13 @@ export function TripForm() {
                     )}
                   />
                 )}
-                <span className="text-xs text-muted-foreground">Ending after midnight? Just enter the time; it counts as the next morning.</span>
+                <span className="text-xs text-muted-foreground">
+                  {watchedMultiDay
+                    ? watchedStillFishing
+                      ? 'Add the end date and time when you\'re back.'
+                      : `Up to ${MAX_TRIP_DAYS} days. Weather, moon and tides are saved for each day.`
+                    : 'Ending after midnight? Just enter the time; it counts as the next morning.'}
+                </span>
               </div>
 
               <FormField
@@ -346,15 +435,44 @@ export function TripForm() {
 
               {watchedLocation && (
                 // Weather, moon and tides are saved with the trip for the middle of the session (FR-16).
-                watchedStart && watchedDate ? (
-                  <ConditionsPanel
-                    query={{ locationId: watchedLocation, date: previewDate, time: moment.time }}
-                    title={
-                      watchedEnd && moment.time !== watchedStart
-                        ? `Conditions mid-session (${moment.time}${moment.dayOffset ? ', next day' : ''}), saved with the trip`
-                        : 'Conditions at your start time, saved with the trip'
-                    }
-                  />
+                watchedStart && watchedDate && moment ? (
+                  <div className="space-y-2">
+                    {moments.length > 1 && (
+                      <div>
+                        <p className="m-0 mb-1.5 text-xs text-muted-foreground">
+                          Conditions are saved for each of the {moments.length} days, at the middle of the hours fished that day.
+                        </p>
+                        <div className="flex flex-wrap gap-1" role="tablist" aria-label="Preview day">
+                          {moments.map((m, i) => (
+                            <button
+                              key={m.date}
+                              type="button"
+                              role="tab"
+                              aria-selected={i === dayIndex}
+                              onClick={() => setPreviewDay(i)}
+                              className={
+                                i === dayIndex
+                                  ? 'rounded-md bg-primary px-2.5 py-1 text-xs text-primary-foreground'
+                                  : 'rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground'
+                              }
+                            >
+                              {dayLabel(m.date, days.indexOf(m.date) >= 0 ? days.indexOf(m.date) : i)}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    <ConditionsPanel
+                      query={{ locationId: watchedLocation, date: moment.date, time: moment.time }}
+                      title={
+                        moments.length > 1
+                          ? `Day ${(days.indexOf(moment.date) >= 0 ? days.indexOf(moment.date) : dayIndex) + 1} at ${to12h(moment.time)}`
+                          : watchedEnd && !watchedStillFishing && moment.time !== watchedStart
+                            ? `Conditions mid-session (${to12h(moment.time)}${moment.date !== watchedDate ? ', next day' : ''}), saved with the trip`
+                            : 'Conditions at your start time, saved with the trip'
+                      }
+                    />
+                  </div>
                 ) : (
                   <p className="text-sm text-muted-foreground">Set your start time to see the conditions for your session.</p>
                 )
@@ -403,6 +521,27 @@ export function TripForm() {
                           <Trash2 className="size-4" />
                         </Button>
                       </div>
+
+                      {days.length > 1 && (
+                        <FormField
+                          control={form.control}
+                          name={`catches.${index}.day`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Caught on</FormLabel>
+                              <FormControl>
+                                <select
+                                  className="h-10 w-full border-b border-input bg-transparent text-sm outline-none"
+                                  value={field.value && days.includes(field.value) ? field.value : days[0]}
+                                  onChange={(e) => field.onChange(e.target.value)}
+                                >
+                                  {days.map((d, i) => <option key={d} value={d}>{dayLabel(d, i)}</option>)}
+                                </select>
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      )}
 
                       <FormField
                         control={form.control}

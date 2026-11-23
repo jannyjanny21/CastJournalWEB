@@ -69,5 +69,5 @@ export interface TripMapLocation {
   latitude: number;
   longitude: number;
   waterType: string;
-  trips: { id: string; title: string | null; tripDate: string; catchCount: number; species: string[] }[];
+  trips: { id: string; title: string | null; tripDate: string; endDate: string | null; catchCount: number; species: string[] }[];
 }
