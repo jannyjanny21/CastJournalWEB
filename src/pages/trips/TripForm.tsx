@@ -7,6 +7,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { tripsApi } from '../../api/trips';
 import { catchesApi } from '../../api/catches';
 import { speciesApi } from '../../api/species';
+import { RequestSpeciesLink } from '../../components/RequestSpeciesDialog';
 import { locationsApi } from '../../api/locations';
 import type { Species } from '../../types/species';
 import type { Location } from '../../types/location';
@@ -420,6 +421,7 @@ export function TripForm() {
                               </SelectContent>
                             </Select>
                             <FormMessage />
+                            <RequestSpeciesLink />
                           </FormItem>
                         )}
                       />

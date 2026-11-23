@@ -6,6 +6,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { catchesApi } from '../../api/catches';
 import { tripsApi } from '../../api/trips';
 import { speciesApi } from '../../api/species';
+import { RequestSpeciesLink } from '../../components/RequestSpeciesDialog';
 import { locationsApi } from '../../api/locations';
 import type { Species } from '../../types/species';
 import type { Location } from '../../types/location';
@@ -169,6 +170,7 @@ export function CatchForm() {
                       </SelectContent>
                     </Select>
                     <FormMessage />
+                    <RequestSpeciesLink />
                   </FormItem>
                 )}
               />

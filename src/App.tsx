@@ -21,6 +21,8 @@ import { ExportPage } from './pages/export/ExportPage';
 import { AdminLayout } from './pages/admin/AdminLayout';
 import { ManageUsers } from './pages/admin/ManageUsers';
 import { ManageSpecies } from './pages/admin/ManageSpecies';
+import { ManageCategories } from './pages/admin/ManageCategories';
+import { MySpeciesRequests } from './pages/species/MySpeciesRequests';
 import { SystemReports } from './pages/admin/SystemReports';
 import { AuditLogs } from './pages/admin/AuditLogs';
 import { Backup } from './pages/admin/Backup';
@@ -68,6 +70,7 @@ function App() {
           <Route path="/anglers/:userId" element={<PublicProfile />} />
 
           <Route path="/notifications" element={<Notifications />} />
+          <Route path="/species/requests" element={<MySpeciesRequests />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/export" element={<ExportPage />} />
 
@@ -78,6 +81,7 @@ function App() {
               <Route index element={<ManageUsers />} />
               <Route path="users" element={<ManageUsers />} />
               <Route path="species" element={<ManageSpecies />} />
+              <Route path="categories" element={<ManageCategories />} />
               <Route path="reports" element={<SystemReports />} />
               <Route path="audit-logs" element={<AuditLogs />} />
               <Route path="backup" element={<Backup />} />
