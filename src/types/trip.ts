@@ -38,6 +38,8 @@ export interface UpdateTripPayload {
   notes: string | null;
   weatherConditions: string | null;
   isPublic: boolean;
+  /** Logging a session that's still going (today only), so there's no end time yet. */
+  stillFishing?: boolean;
 }
 
 export interface CreateTripPayload extends UpdateTripPayload {

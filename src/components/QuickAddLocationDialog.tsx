@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { MapPicker, type LatLng } from './map/MapPicker';
 
 const WATER_TYPES = ['Freshwater', 'Saltwater', 'Brackish'] as const;
 
@@ -24,6 +25,7 @@ export function QuickAddLocationDialog({
   const [name, setName] = useState('');
   const [waterType, setWaterType] = useState<(typeof WATER_TYPES)[number]>('Freshwater');
   const [isPublic, setIsPublic] = useState(false);
+  const [point, setPoint] = useState<LatLng | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,6 +33,7 @@ export function QuickAddLocationDialog({
     setName('');
     setWaterType('Freshwater');
     setIsPublic(false);
+    setPoint(null);
     setError(null);
   };
 
@@ -41,27 +44,31 @@ export function QuickAddLocationDialog({
 
   const handleSave = async () => {
     if (!name.trim()) {
-      setError('Give it at least a name — you can fill in the rest later.');
+      setError('Give the spot a name.');
+      return;
+    }
+    // Weather, tides and the map all depend on the position, so a pin is required.
+    if (!point) {
+      setError('Place a pin on the map, or use your location.');
       return;
     }
     setIsSaving(true);
     setError(null);
     try {
-      // Quick-add: we don't ask for coordinates here, so these are placeholders
-      // until the user finishes setting the location up properly on the
-      // Locations page. See MyLocations.tsx for the full edit form.
       const created = await locationsApi.create({
         name: name.trim(),
         description: null,
-        latitude: 0,
-        longitude: 0,
+        latitude: point.lat,
+        longitude: point.lng,
         waterType,
         isPublic,
       });
       onCreated(created);
       handleOpenChange(false);
-    } catch {
-      setError("Couldn't save that location — try again.");
+    } catch (err) {
+      setError(err && typeof err === 'object' && 'message' in err
+        ? String((err as { message: unknown }).message)
+        : "Couldn't save that location — try again.");
     } finally {
       setIsSaving(false);
     }
@@ -84,10 +91,11 @@ export function QuickAddLocationDialog({
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
-            <p className="mt-1 text-xs text-muted-foreground">
-              That's all you need for now — you can add coordinates and more detail
-              on the Locations page whenever you're ready.
-            </p>
+          </div>
+
+          <div>
+            <Label>Position *</Label>
+            <MapPicker value={point} onChange={setPoint} height={220} />
           </div>
 
           <div>

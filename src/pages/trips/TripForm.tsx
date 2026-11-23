@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useFieldArray, useForm } from 'react-hook-form';
+import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -12,7 +12,7 @@ import type { Species } from '../../types/species';
 import type { Location } from '../../types/location';
 import type { CreateCatchPayload } from '../../types/catch';
 import type { UpdateTripPayload } from '../../types/trip';
-import { fromTimeInput, toTimeInput } from '../../utils/trip';
+import { addDaysToDate, conditionsMoment, fromTimeInput, nowTimeInput, toTimeInput } from '../../utils/trip';
 import { CastDivider } from '../../components/CastDivider';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,8 +24,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { QuickAddLocationDialog } from '../../components/QuickAddLocationDialog';
 import { CategorySelect } from '../../components/CategorySelect';
 import { useCatchCategories } from '../../hooks/useCatchCategories';
+import { ConditionsPanel } from '../../components/ConditionsPanel';
 
-const NO_LOCATION = '__none__';
 const ADD_NEW_LOCATION = '__add_new__';
 
 const positiveOrEmpty = z
@@ -46,17 +46,22 @@ const tripFormSchema = z
   .object({
     title: z.string().max(150, 'At most 150 characters'),
     tripDate: z.string().min(1, 'Date is required'),
-    startTime: z.string(),
+    startTime: z.string().min(1, 'Start time is required'),
     endTime: z.string(),
-    locationId: z.string(),
+    stillFishing: z.boolean(),
+    locationId: z.string().min(1, 'Location is required'),
     weatherConditions: z.string().max(500, 'At most 500 characters'),
     notes: z.string().max(1000, 'At most 1000 characters'),
     isPublic: z.boolean(),
     catches: z.array(catchSchema),
   })
-  .refine((v) => !v.startTime || !v.endTime || v.endTime >= v.startTime, {
-    message: "End time can't be before the start time",
-    path: ['endTime'],
+  // FR-6: start and end time are part of a trip. The end can follow later only while still fishing today.
+  // An end earlier than the start is allowed: the session ran past midnight.
+  .superRefine((v, ctx) => {
+    if (!v.endTime && !v.stillFishing)
+      ctx.addIssue({ code: 'custom', path: ['endTime'], message: 'End time is required (or tick "Still fishing")' });
+    if (!v.endTime && v.stillFishing && v.tripDate !== todayLocal())
+      ctx.addIssue({ code: 'custom', path: ['endTime'], message: '"Still fishing" is only for today\'s trip' });
   });
 
 type TripFormValues = z.infer<typeof tripFormSchema>;
@@ -111,6 +116,7 @@ export function TripForm() {
       tripDate: todayLocal(),
       startTime: '',
       endTime: '',
+      stillFishing: false,
       locationId: '',
       weatherConditions: '',
       notes: '',
@@ -120,6 +126,14 @@ export function TripForm() {
   });
 
   const { fields, append, remove } = useFieldArray({ control: form.control, name: 'catches' });
+  const [watchedLocation, watchedDate, watchedStart, watchedEnd, watchedStillFishing] = useWatch({
+    control: form.control,
+    name: ['locationId', 'tripDate', 'startTime', 'endTime', 'stillFishing'],
+  });
+  // Same rule as the API, so the preview shows exactly what gets saved.
+  const moment = conditionsMoment(watchedStart, watchedEnd);
+  const previewDate = watchedDate ? addDaysToDate(watchedDate, moment.dayOffset) : '';
+  const isToday = watchedDate === todayLocal();
 
   useEffect(() => {
     speciesApi.getAll().then(setSpecies).catch(() => {});
@@ -132,6 +146,7 @@ export function TripForm() {
           tripDate: t.tripDate,
           startTime: toTimeInput(t.startTime),
           endTime: toTimeInput(t.endTime),
+          stillFishing: !t.endTime && t.tripDate === todayLocal(),
           locationId: t.locationId ?? '',
           weatherConditions: t.weatherConditions ?? '',
           notes: t.notes ?? '',
@@ -149,6 +164,7 @@ export function TripForm() {
       tripDate: values.tripDate,
       startTime: fromTimeInput(values.startTime),
       endTime: fromTimeInput(values.endTime),
+      stillFishing: values.stillFishing && !values.endTime,
       locationId: values.locationId || null,
       notes: values.notes || null,
       weatherConditions: values.weatherConditions || null,
@@ -225,7 +241,7 @@ export function TripForm() {
                   name="startTime"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Start</FormLabel>
+                      <FormLabel>Start *</FormLabel>
                       <FormControl><Input type="time" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
@@ -236,12 +252,47 @@ export function TripForm() {
                   name="endTime"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>End</FormLabel>
-                      <FormControl><Input type="time" {...field} /></FormControl>
+                      <FormLabel>End {watchedStillFishing ? '' : '*'}</FormLabel>
+                      <FormControl><Input type="time" disabled={watchedStillFishing} {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+              </div>
+
+              <div className="-mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+                {isToday && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => form.setValue('startTime', nowTimeInput(), { shouldDirty: true, shouldValidate: true })}
+                  >
+                    Start now
+                  </Button>
+                )}
+                {isToday && (
+                  <FormField
+                    control={form.control}
+                    name="stillFishing"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center gap-2">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={(checked) => {
+                              field.onChange(checked === true);
+                              if (checked === true) form.setValue('endTime', '');
+                              form.trigger('endTime');
+                            }}
+                          />
+                        </FormControl>
+                        <FormLabel className="!mt-0 font-normal">Still fishing (add the end time later)</FormLabel>
+                      </FormItem>
+                    )}
+                  />
+                )}
+                <span className="text-xs text-muted-foreground">Ending after midnight? Just enter the time; it counts as the next morning.</span>
               </div>
 
               <FormField
@@ -249,29 +300,27 @@ export function TripForm() {
                 name="locationId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Location</FormLabel>
+                    <FormLabel>Location *</FormLabel>
                     <Select
                       items={[
-                        { value: NO_LOCATION, label: 'No location' },
                         ...locations.map((l) => ({ value: l.id, label: l.name })),
                         { value: ADD_NEW_LOCATION, label: '+ Add new location' },
                       ]}
-                      value={field.value || NO_LOCATION}
+                      value={field.value || null}
                       onValueChange={(v) => {
                         if (v === ADD_NEW_LOCATION) {
                           setQuickAddOpen(true);
                           return;
                         }
-                        field.onChange(v === NO_LOCATION ? '' : v);
+                        field.onChange(v ?? '');
                       }}
                     >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="No location" />
+                          <SelectValue placeholder="Choose a location" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value={NO_LOCATION}>No location</SelectItem>
                         {locations.map((l) => (
                           <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
                         ))}
@@ -292,17 +341,21 @@ export function TripForm() {
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="weatherConditions"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Weather</FormLabel>
-                    <FormControl><Input type="text" placeholder="e.g. Clear, light breeze" {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {watchedLocation && (
+                // Weather, moon and tides are saved with the trip for the middle of the session (FR-16).
+                watchedStart && watchedDate ? (
+                  <ConditionsPanel
+                    query={{ locationId: watchedLocation, date: previewDate, time: moment.time }}
+                    title={
+                      watchedEnd && moment.time !== watchedStart
+                        ? `Conditions mid-session (${moment.time}${moment.dayOffset ? ', next day' : ''}), saved with the trip`
+                        : 'Conditions at your start time, saved with the trip'
+                    }
+                  />
+                ) : (
+                  <p className="text-sm text-muted-foreground">Set your start time to see the conditions for your session.</p>
+                )
+              )}
 
               <FormField
                 control={form.control}
