@@ -8,6 +8,7 @@ import { Toaster } from './components/ui/sonner';
 import './hooks/useInstallPrompt';
 import App from './App';
 import { ReloadPrompt } from './components/ReloadPrompt';
+import { OutboxSync } from './components/OutboxSync';
 import './index.css';
 
 createRoot(document.getElementById('root')!).render(
@@ -18,6 +19,7 @@ createRoot(document.getElementById('root')!).render(
           <App />
           <Toaster position="bottom-right" richColors closeButton />
           <ReloadPrompt />
+          <OutboxSync />
         </NotificationsProvider>
       </AuthProvider>
     </BrowserRouter>

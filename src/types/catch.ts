@@ -47,6 +47,8 @@ export interface CreateCatchPayload {
   baitUsed: string | null;
   fishingMethod: string | null;
   notes: string | null;
+  /** Made on the device; a retried upload with the same ID doesn't create a duplicate (F-13). */
+  clientId?: string;
 }
 
 export interface CatchFilter {

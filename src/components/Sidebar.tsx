@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useInstallPrompt } from '../hooks/useInstallPrompt';
+import { outbox, useOutbox } from '../offline/outbox';
 
 const mainLinks = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -32,6 +33,20 @@ export function Sidebar() {
   const { user, logout } = useAuth();
   // Offered by Chrome/Edge/Android; installed, the app opens without the browser bar and works offline (F-13).
   const install = useInstallPrompt();
+  const { entries: queued } = useOutbox();
+
+  // Trips logged offline live only on this device until they upload: don't lose them silently.
+  const handleLogout = async () => {
+    if (queued.length > 0) {
+      const n = queued.length;
+      const ok = confirm(
+        `${n} ${n === 1 ? 'trip hasn\u2019t' : 'trips haven\u2019t'} uploaded yet. Logging out deletes ${n === 1 ? 'it' : 'them'} from this device. Log out anyway?`,
+      );
+      if (!ok) return;
+      if (user) await outbox.clearUser(user.id);
+    }
+    await logout();
+  };
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(STORAGE_KEY) === '1');
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -188,7 +203,7 @@ export function Sidebar() {
             {expanded && <span className="truncate text-sm">{user?.fullName}</span>}
           </Link>
           {expanded && <NotificationBell />}
-          <Button variant="ghost" size="icon-sm" onClick={logout} aria-label="Log out">
+          <Button variant="ghost" size="icon-sm" onClick={() => { void handleLogout(); }} aria-label="Log out">
             <LogOut className="size-4" />
           </Button>
         </div>

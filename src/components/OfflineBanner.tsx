@@ -1,5 +1,7 @@
 import { CloudOff } from 'lucide-react';
 import { useOfflineStatus } from '../offline/status';
+import { useOutbox } from '../offline/outbox';
+import { Link } from 'react-router-dom';
 
 function savedAgo(ts: number): string {
   const mins = Math.round((Date.now() - ts) / 60000);
@@ -13,7 +15,14 @@ function savedAgo(ts: number): string {
 /** Shown while there's no connection, or when the page on screen is a saved copy (F-13). */
 export function OfflineBanner() {
   const { online, savedCopyFrom } = useOfflineStatus();
-  if (online && savedCopyFrom == null) return null;
+  const { entries, syncing } = useOutbox();
+  const waiting = entries.filter((e) => e.status === 'pending' || e.status === 'syncing').length;
+  const needsAttention = entries.filter((e) => e.status === 'failed' || e.status === 'attention').length;
+
+  const offline = !online || savedCopyFrom != null;
+  if (!offline && waiting === 0 && needsAttention === 0) return null;
+
+  const trips = (n: number) => `${n} ${n === 1 ? 'trip' : 'trips'}`;
 
   return (
     <div
@@ -22,11 +31,23 @@ export function OfflineBanner() {
     >
       <CloudOff className="mt-0.5 size-4 shrink-0" />
       <span>
-        <strong>You're offline.</strong>{' '}
-        {savedCopyFrom != null
-          ? `Showing what was saved on this device (${savedAgo(savedCopyFrom)}). `
-          : 'Pages you opened before are saved on this device. '}
-        Changes need a connection.
+        {offline ? (
+          <>
+            <strong>You're offline.</strong>{' '}
+            {savedCopyFrom != null
+              ? `Showing what was saved on this device (${savedAgo(savedCopyFrom)}). `
+              : 'Pages you opened before are saved on this device. '}
+            New trips are saved here and upload when you're back online; edits need a connection.
+            {waiting > 0 && <> <Link to="/trips" className="underline">{trips(waiting)} waiting</Link>.</>}
+          </>
+        ) : (
+          <>
+            {waiting > 0 && <>{syncing ? 'Uploading' : 'Waiting to upload'} {trips(waiting)} logged on this device… </>}
+            {needsAttention > 0 && (
+              <Link to="/trips" className="underline">{trips(needsAttention)} couldn't upload — see My Trips.</Link>
+            )}
+          </>
+        )}
       </span>
     </div>
   );

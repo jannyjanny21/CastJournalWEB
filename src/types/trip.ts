@@ -55,6 +55,8 @@ export interface UpdateTripPayload {
 
 export interface CreateTripPayload extends UpdateTripPayload {
   catches: CreateCatchPayload[];
+  /** Made on the device; a retried upload with the same ID returns the trip already saved (F-13). */
+  clientId?: string;
 }
 
 export interface TripFilter {
