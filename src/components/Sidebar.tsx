@@ -7,9 +7,10 @@ import { NotificationBell } from './NotificationBell';
 import { Button } from './ui/button';
 import {
   LayoutGrid, LayoutDashboard, Fish, Sailboat, Map as MapIcon, MapPin, BarChart3, Download, ShieldCheck,
-  LogOut, ChevronsLeft, ChevronsRight, Menu, Shield,
+  LogOut, ChevronsLeft, ChevronsRight, Menu, Shield, Smartphone as InstallIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useInstallPrompt } from '../hooks/useInstallPrompt';
 
 const mainLinks = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -29,6 +30,8 @@ const MOBILE_TOPBAR_CLASS = 'h-14';
 
 export function Sidebar() {
   const { user, logout } = useAuth();
+  // Offered by Chrome/Edge/Android; installed, the app opens without the browser bar and works offline (F-13).
+  const install = useInstallPrompt();
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(STORAGE_KEY) === '1');
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -133,6 +136,21 @@ export function Sidebar() {
             </>
           )}
         </nav>
+
+        {install && (
+          <button
+            type="button"
+            onClick={() => { void install(); }}
+            title={!expanded ? 'Install app' : undefined}
+            className={cn(
+              'mb-1 flex items-center gap-2.5 rounded-md px-2 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground',
+              !expanded && 'justify-center px-0'
+            )}
+          >
+            <InstallIcon className="size-4.5 shrink-0" />
+            {expanded && 'Install app'}
+          </button>
+        )}
 
         <Link
           to="/privacy"
