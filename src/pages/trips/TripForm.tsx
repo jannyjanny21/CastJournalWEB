@@ -52,7 +52,7 @@ const tripFormSchema = z
     locationId: z.string().min(1, 'Location is required'),
     weatherConditions: z.string().max(500, 'At most 500 characters'),
     notes: z.string().max(1000, 'At most 1000 characters'),
-    isPublic: z.boolean(),
+    publishAfterSave: z.boolean(),
     catches: z.array(catchSchema),
   })
   // FR-6: start and end time are part of a trip. The end can follow later only while still fishing today.
@@ -120,7 +120,7 @@ export function TripForm() {
       locationId: '',
       weatherConditions: '',
       notes: '',
-      isPublic: false,
+      publishAfterSave: false,
       catches: isEdit ? [] : [emptyCatch],
     },
   });
@@ -150,7 +150,7 @@ export function TripForm() {
           locationId: t.locationId ?? '',
           weatherConditions: t.weatherConditions ?? '',
           notes: t.notes ?? '',
-          isPublic: t.isPublic,
+          publishAfterSave: false,
           catches: [],
         });
       });
@@ -168,7 +168,6 @@ export function TripForm() {
       locationId: values.locationId || null,
       notes: values.notes || null,
       weatherConditions: values.weatherConditions || null,
-      isPublic: values.isPublic,
     };
 
     try {
@@ -193,7 +192,8 @@ export function TripForm() {
         return;
       }
 
-      navigate(`/trips/${trip.id}`);
+      // "Upload now" (FR-43): open the publish preview straight away; publishing still needs the angler's OK (FR-45).
+      navigate(`/trips/${trip.id}`, { state: values.publishAfterSave ? { openPublish: true } : undefined });
     } catch (err) {
       form.setError('root', { message: errorMessage(err) });
     }
@@ -505,18 +505,22 @@ export function TripForm() {
                 </div>
               )}
 
-              <FormField
-                control={form.control}
-                name="isPublic"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center gap-2">
-                    <FormControl>
-                      <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                    </FormControl>
-                    <FormLabel className="!mt-0">Publish this trip to the community feed</FormLabel>
-                  </FormItem>
-                )}
-              />
+              {!isEdit && (
+                <FormField
+                  control={form.control}
+                  name="publishAfterSave"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center gap-2">
+                      <FormControl>
+                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                      <FormLabel className="!mt-0 font-normal">
+                        Publish after saving (you'll see what others will see first). Otherwise it stays private.
+                      </FormLabel>
+                    </FormItem>
+                  )}
+                />
+              )}
 
               {form.formState.errors.root && (
                 <p className="text-sm text-destructive" role="alert">

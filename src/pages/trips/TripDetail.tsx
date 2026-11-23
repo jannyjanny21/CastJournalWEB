@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { Heart, Lock, Globe, Plus, RefreshCw } from 'lucide-react';
+import { Heart, Lock, Globe, Plus, RefreshCw, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { tripsApi } from '../../api/trips';
 import { catchesApi } from '../../api/catches';
@@ -15,6 +15,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CommentSection } from '../../components/CommentSection';
 import { ShareButton } from '../../components/ShareButton';
+import { PublishDialog } from '../../components/PublishDialog';
+import { LocationMiniMap } from '../../components/map/LocationMiniMap';
+import { hasPosition } from '../../components/map/leaflet';
 
 function CatchBlock({ item, isOwner, tripLocationId, onDeleted }: {
   item: Catch;
@@ -68,6 +71,9 @@ function CatchBlock({ item, isOwner, tripLocationId, onDeleted }: {
       {item.locationId && item.locationId !== tripLocationId && item.locationName && (
         <p className="m-0 text-sm text-muted-foreground">📍 {item.locationName}</p>
       )}
+      {item.locationHidden && (
+        <p className="m-0 flex items-center gap-1 text-sm text-muted-foreground"><EyeOff className="size-3.5" /> Location hidden</p>
+      )}
       {item.gearUsed && <p className="m-0 text-sm"><strong>Gear:</strong> {item.gearUsed}</p>}
       {item.baitUsed && <p className="m-0 text-sm"><strong>Bait:</strong> {item.baitUsed}</p>}
       {item.fishingMethod && <p className="m-0 text-sm"><strong>Method:</strong> {item.fishingMethod}</p>}
@@ -76,12 +82,37 @@ function CatchBlock({ item, isOwner, tripLocationId, onDeleted }: {
   );
 }
 
-function TripView({ trip, onChange }: { trip: Trip; onChange: (t: Trip) => void }) {
+function TripView({ trip, onChange, openPublish }: { trip: Trip; onChange: (t: Trip) => void; openPublish: boolean }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const { liked, likeCount, busy, toggleLike } = useTripLike(trip);
   const isOwner = user?.id === trip.userId;
   const times = timeRange(trip);
+
+  // "Publish after saving" from the trip form opens the preview once (FR-43, FR-45).
+  const [publishOpen, setPublishOpen] = useState(() => openPublish && isOwner && !trip.isPublic);
+  useEffect(() => {
+    // Clear the one-time flag so a refresh or Back doesn't reopen the dialog.
+    if (openPublish) navigate(location.pathname + location.hash, { replace: true, state: null });
+  }, [openPublish, navigate, location.pathname, location.hash]);
+
+  const [withdrawing, setWithdrawing] = useState(false);
+  const handleWithdraw = async () => {
+    if (!confirm('Withdraw this trip? It becomes private again and leaves the community feed.')) return;
+    setWithdrawing(true);
+    try {
+      onChange(await tripsApi.unpublish(trip.id));
+      toast.success('Trip withdrawn — it is private again.');
+    } catch {
+      toast.error("Couldn't withdraw this trip — try again.");
+    } finally {
+      setWithdrawing(false);
+    }
+  };
+
+  const showMap = trip.locationLatitude != null && trip.locationLongitude != null
+    && hasPosition(trip.locationLatitude, trip.locationLongitude);
 
   const handleDelete = async () => {
     // Soft delete: the trip and its catches are hidden, and an administrator can restore them from a backup.
@@ -133,15 +164,31 @@ function TripView({ trip, onChange }: { trip: Trip; onChange: (t: Trip) => void 
               <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
                 {trip.isPublic ? <Globe className="size-3.5" /> : <Lock className="size-3.5" />}
                 {trip.isPublic ? 'Published' : 'Private'}
+                {trip.isPublic && trip.disclosesPrivateLocations && ' · spot shown'}
               </span>
             )}
           </div>
+
+          {isOwner && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {trip.isPublic ? (
+                <>
+                  <Button variant="outline" size="sm" onClick={() => setPublishOpen(true)}>Change location visibility</Button>
+                  <Button variant="outline" size="sm" onClick={handleWithdraw} disabled={withdrawing}>
+                    {withdrawing ? 'Withdrawing…' : 'Withdraw'}
+                  </Button>
+                </>
+              ) : (
+                <Button size="sm" onClick={() => setPublishOpen(true)}><Globe className="size-4" /> Publish…</Button>
+              )}
+            </div>
+          )}
 
           <h1 className="mt-3 font-heading text-2xl">{tripHeading(trip)}</h1>
           <CastDivider />
 
           <p className="text-muted-foreground">
-            📍 {trip.locationName ?? 'No location'} &nbsp;·&nbsp; 📅 {formatTripDate(trip.tripDate)}
+            📍 {trip.locationHidden ? 'Location hidden by the angler' : trip.locationName ?? 'No location'} &nbsp;·&nbsp; 📅 {formatTripDate(trip.tripDate)}
             {times && <> &nbsp;·&nbsp; 🕒 {times}</>}
           </p>
           {isOwner && !trip.endTime && (
@@ -151,6 +198,7 @@ function TripView({ trip, onChange }: { trip: Trip; onChange: (t: Trip) => void 
               {' '}so the conditions cover your whole session.
             </p>
           )}
+          {showMap && <LocationMiniMap lat={trip.locationLatitude!} lng={trip.locationLongitude!} />}
           {trip.notes && <p><strong>Notes:</strong> {trip.notes}</p>}
 
           {(trip.weatherConditions || trip.lunarConditions || trip.tidalConditions || isOwner) && (
@@ -227,6 +275,18 @@ function TripView({ trip, onChange }: { trip: Trip; onChange: (t: Trip) => void 
           )}
         </CardContent>
       </Card>
+
+      {isOwner && (
+        <PublishDialog
+          tripId={trip.id}
+          open={publishOpen}
+          onOpenChange={setPublishOpen}
+          onPublished={(t) => {
+            onChange(t);
+            toast.success('Trip published to the community feed.');
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -269,5 +329,6 @@ export function TripDetail() {
   if (!trip) return <p className="text-muted-foreground">Loading...</p>;
 
   // Keyed by id so the like state resets when navigating between trips.
-  return <TripView key={trip.id} trip={trip} onChange={(t) => setLoaded({ id: t.id, trip: t })} />;
+  const openPublish = !!(location.state as { openPublish?: boolean } | null)?.openPublish;
+  return <TripView key={trip.id} trip={trip} openPublish={openPublish} onChange={(t) => setLoaded({ id: t.id, trip: t })} />;
 }

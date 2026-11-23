@@ -16,6 +16,9 @@ export interface Catch {
   speciesName: string | null;
   locationId: string | null;
   locationName: string | null;
+  locationIsPublic: boolean;
+  /** This catch's private location is hidden from this viewer (FR-45). */
+  locationHidden: boolean;
   catchDate: string;
   weight: number | null;
   length: number | null;

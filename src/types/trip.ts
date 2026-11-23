@@ -11,6 +11,14 @@ export interface Trip {
   userAvatarUrl: string | null;
   locationId: string | null;
   locationName: string | null;
+  /** Null when hidden from this viewer (FR-45). */
+  locationLatitude: number | null;
+  locationLongitude: number | null;
+  locationIsPublic: boolean;
+  /** The trip has a private location this viewer may not see. */
+  locationHidden: boolean;
+  /** Owner chose to show private locations when publishing. */
+  disclosesPrivateLocations: boolean;
   title: string | null;
   tripDate: string;
   startTime: string | null;
@@ -37,7 +45,6 @@ export interface UpdateTripPayload {
   locationId: string | null;
   notes: string | null;
   weatherConditions: string | null;
-  isPublic: boolean;
   /** Logging a session that's still going (today only), so there's no end time yet. */
   stillFishing?: boolean;
 }
@@ -58,4 +65,19 @@ export interface TripFeedFilter {
   followingOnly?: boolean;
   page?: number;
   pageSize?: number;
+}
+
+/** GET /api/trips/{id}/publish-preview: what others will see (FR-45). */
+export interface PublishPreview {
+  tripId: string;
+  isPublic: boolean;
+  title: string | null;
+  tripDate: string;
+  catchCount: number;
+  photoCount: number;
+  videoCount: number;
+  hasNotes: boolean;
+  hasConditions: boolean;
+  visible: string[];
+  privateLocations: { id: string; name: string }[];
 }
