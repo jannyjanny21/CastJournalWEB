@@ -44,3 +44,37 @@ export function timeRange(trip: Trip): string | null {
   if (start && end) return `${start}–${end}`;
   return start || end || null;
 }
+
+/**
+ * The moment a trip's conditions describe, matching the API (TripService.ConditionsMoment): the middle of
+ * the session when both times are set (05:30–09:30 → 07:30), else the start time. An end earlier than the
+ * start means the session ran past midnight: 22:00–04:00 → 01:00 the next day (dayOffset 1).
+ */
+export function conditionsMoment(start: string, end: string): { time: string | null; dayOffset: number } {
+  if (!start) return { time: null, dayOffset: 0 };
+  if (!end) return { time: start, dayOffset: 0 };
+  const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+  const from = toMin(start);
+  let to = toMin(end);
+  if (to < from) to += 24 * 60; // overnight
+  let mid = Math.floor((from + to) / 2);
+  const dayOffset = mid >= 24 * 60 ? 1 : 0;
+  mid -= dayOffset * 24 * 60;
+  return {
+    time: `${String(Math.floor(mid / 60)).padStart(2, '0')}:${String(mid % 60).padStart(2, '0')}`,
+    dayOffset,
+  };
+}
+
+/** "2026-11-23" plus n days, as "YYYY-MM-DD" (calendar arithmetic, no time zone shifts). */
+export function addDaysToDate(date: string, days: number): string {
+  const [y, m, d] = date.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d + days));
+  return dt.toISOString().slice(0, 10);
+}
+
+/** Current local time as "HH:mm" for <input type="time">. */
+export function nowTimeInput(): string {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
