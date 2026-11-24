@@ -13,6 +13,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { MapPicker } from '../../components/map/MapPicker';
 import { hasPosition } from '../../components/map/leaflet';
+import { toast } from 'sonner';
+import { apiErrorMessage } from '../../utils/errorMessage';
+import { useConfirm } from '../../hooks/useConfirm';
 
 const coordinate = (label: string, min: number, max: number) =>
   z
@@ -40,6 +43,7 @@ const emptyValues: LocationValues = {
 };
 
 export function MyLocations() {
+  const ask = useConfirm();
   const [locations, setLocations] = useState<Location[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -107,9 +111,14 @@ export function MyLocations() {
   };
 
   const handleDelete = async (l: Location) => {
-    if (!confirm(`Delete "${l.name}"?`)) return;
-    await locationsApi.remove(l.id);
-    load();
+    // B-12: the spot leaves your list and pickers; trips that used it keep showing it.
+    if (!(await ask({ title: `Remove "${l.name}" from your spots?`, description: 'Trips you logged there will still show it.', confirmLabel: 'Remove', destructive: true }))) return;
+    try {
+      await locationsApi.remove(l.id);
+      load();
+    } catch (err) {
+      toast.error(apiErrorMessage(err, "Couldn't remove this spot — try again."));
+    }
   };
 
   return (

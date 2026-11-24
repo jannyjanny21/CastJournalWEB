@@ -17,8 +17,13 @@ export interface Trip {
   locationIsPublic: boolean;
   /** The trip has a private location this viewer may not see. */
   locationHidden: boolean;
+  /** The angler removed this spot from their list since; the trip still shows it. */
+  locationDeleted: boolean;
   /** Owner chose to show private locations when publishing. */
   disclosesPrivateLocations: boolean;
+  /** An administrator removed it from the community after a report; it can't be republished (F-18). */
+  removedFromCommunity: boolean;
+  moderationReason: string | null;
   title: string | null;
   tripDate: string;
   startTime: string | null;
@@ -62,6 +67,8 @@ export interface CreateTripPayload extends UpdateTripPayload {
 export interface TripFilter {
   startDate?: string;
   endDate?: string;
+  /** My Trips tab: only published or only private trips. */
+  visibility?: 'published' | 'private';
   page?: number;
   pageSize?: number;
 }
@@ -86,4 +93,24 @@ export interface PublishPreview {
   hasConditions: boolean;
   visible: string[];
   privateLocations: { id: string; name: string }[];
+}
+
+/** GET /api/trips/deleted: a trip in Recently deleted (B-24). */
+export interface DeletedTrip {
+  id: string;
+  title: string | null;
+  tripDate: string;
+  endDate: string | null;
+  locationName: string | null;
+  catchCount: number;
+  wasPublic: boolean;
+  deletedAt: string;
+  restorableUntil: string;
+}
+
+/** GET /api/trips/counts — numbers on the My Trips tabs. */
+export interface TripCounts {
+  all: number;
+  published: number;
+  private: number;
 }

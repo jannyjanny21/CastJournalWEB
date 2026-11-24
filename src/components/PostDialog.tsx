@@ -5,6 +5,8 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Heart } from 'lucide-react';
 import { CommentSection } from './CommentSection';
+import { ReportButton } from './ReportDialog';
+import { useAuth } from '../context/useAuth';
 
 export function PostDialog({
   item,
@@ -26,6 +28,7 @@ export function PostDialog({
   onCommentCountChange?: (count: number) => void;
 }) {
   const cover = tripCoverMedia(item);
+  const { user } = useAuth();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -58,14 +61,20 @@ export function PostDialog({
           variant="ghost"
           size="sm"
           onClick={onToggleLike}
-          disabled={busy}
+          disabled={busy} aria-pressed={liked}
+              aria-label={`${liked ? 'Unlike' : 'Like'} this trip, ${likeCount} ${likeCount === 1 ? 'like' : 'likes'}`}
           className={`w-fit px-2 -ml-2 ${liked ? 'text-destructive' : 'text-muted-foreground'} hover:text-destructive`}
         >
-          <Heart className="size-4" fill={liked ? 'currentColor' : 'none'} />
+          <Heart aria-hidden="true" className="size-4" fill={liked ? 'currentColor' : 'none'} />
           {likeCount}
         </Button>
+        {item.isPublic && user?.id !== item.userId && (
+          <div className="-mt-2 flex justify-end">
+            <ReportButton targetType="Trip" targetId={item.id} />
+          </div>
+        )}
 
-        <CommentSection tripId={item.id} onCountChange={onCommentCountChange} />
+        <CommentSection tripId={item.id} onCountChange={onCommentCountChange} canReport={item.isPublic} />
       </DialogContent>
     </Dialog>
   );

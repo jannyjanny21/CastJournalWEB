@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
+import { formatDistanceToNow } from 'date-fns';
 import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, FileClock } from 'lucide-react';
 import { tripsApi } from '../../api/trips';
 import { speciesApi } from '../../api/species';
 import { RequestSpeciesLink } from '../../components/RequestSpeciesDialog';
@@ -34,6 +35,8 @@ import { useOfflineStatus } from '../../offline/status';
 import { useAuth } from '../../context/useAuth';
 import { toast } from 'sonner';
 import { to12h } from '../../utils/time';
+import { drafts, toFiles, type TripDraft } from '../../offline/drafts';
+import { useConfirm } from '../../hooks/useConfirm';
 
 const ADD_NEW_LOCATION = '__add_new__';
 
@@ -116,6 +119,13 @@ function toCatchPayload(c: CatchValues, tripDate: string, days: string[]): Creat
   };
 }
 
+/** Anything worth keeping? The pre-filled date alone isn't. */
+function hasContent(v: TripFormValues, photoRows: File[][]): boolean {
+  if (v.title.trim() || v.startTime || v.endTime || v.locationId || v.notes.trim() || v.weatherConditions.trim() || v.multiDay) return true;
+  if (photoRows.some((row) => row.length > 0)) return true;
+  return v.catches.some((c) => c.speciesId || c.weight || c.length || c.gearUsed || c.baitUsed || c.fishingMethod || c.notes.trim());
+}
+
 function errorMessage(err: unknown): string {
   return err && typeof err === 'object' && 'message' in err
     ? String((err as { message: unknown }).message)
@@ -130,12 +140,15 @@ export function TripForm() {
 
   const [species, setSpecies] = useState<Species[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
+  // Editing a trip whose spot was removed from the list since (B-12): keep it selectable.
+  const [removedSpot, setRemovedSpot] = useState<{ id: string; name: string } | null>(null);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   // Photos per catch row, keyed by the row's useFieldArray id.
   const [photos, setPhotos] = useState<Record<string, File[]>>({});
   const categories = useCatchCategories();
   const { user } = useAuth();
   const { online } = useOfflineStatus();
+  const ask = useConfirm();
 
   const form = useForm<TripFormValues>({
     resolver: zodResolver(tripFormSchema),
@@ -156,6 +169,82 @@ export function TripForm() {
   });
 
   const { fields, append, remove } = useFieldArray({ control: form.control, name: 'catches' });
+
+  // ---- Draft on this device (F-27): a new trip survives closing the app or navigating away. ----
+  // checking → offer (a draft was found: continue or discard) → active (autosaving).
+  const [draftMode, setDraftMode] = useState<'checking' | 'offer' | 'active'>(isEdit ? 'active' : 'checking');
+  const [draftOffer, setDraftOffer] = useState<TripDraft<TripFormValues> | null>(null);
+  const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
+  // Photos of a restored draft, waiting for the catch rows to exist so they can be matched by row.
+  const [restoredPhotos, setRestoredPhotos] = useState<File[][] | null>(null);
+  const allValues = useWatch({ control: form.control });
+  const userId = user?.id;
+
+  if (restoredPhotos && fields.length === restoredPhotos.length) {
+    // Adjusting state during render (React's pattern for "after the rows update"): runs once.
+    const next: Record<string, File[]> = {};
+    fields.forEach((f, i) => { if (restoredPhotos[i]?.length) next[f.id] = restoredPhotos[i]; });
+    setPhotos(next);
+    setRestoredPhotos(null);
+  }
+
+  useEffect(() => {
+    if (isEdit || !userId) return;
+    let cancelled = false;
+    drafts.load<TripFormValues>(userId).then((d) => {
+      if (cancelled) return;
+      if (d && d.values) {
+        setDraftOffer(d);
+        setDraftMode('offer');
+      } else {
+        setDraftMode('active');
+      }
+    });
+    return () => { cancelled = true; };
+  }, [isEdit, userId]);
+
+  useEffect(() => {
+    if (isEdit || !userId || draftMode !== 'active' || restoredPhotos) return;
+    const timer = window.setTimeout(() => {
+      const values = form.getValues();
+      const rows = values.catches.map((_, i) => photos[fields[i]?.id] ?? []);
+      if (!hasContent(values, rows)) {
+        void drafts.remove(userId);
+        setDraftSavedAt(null);
+        return;
+      }
+      void drafts.save(userId, values, rows).then((ok) => {
+        if (ok) setDraftSavedAt(Date.now());
+      });
+    }, 800);
+    return () => window.clearTimeout(timer);
+  }, [allValues, photos, fields, draftMode, isEdit, userId, restoredPhotos, form]);
+
+  const continueDraft = () => {
+    if (!draftOffer) return;
+    form.reset(draftOffer.values);
+    setRestoredPhotos(toFiles(draftOffer.photos));
+    setDraftOffer(null);
+    setDraftMode('active');
+  };
+
+  const discardDraft = async () => {
+    const ok = await ask({
+      title: 'Discard your unsaved trip?',
+      description: 'Its details and photos are removed from this device.',
+      confirmLabel: 'Discard',
+      destructive: true,
+    });
+    if (!ok || !userId) return;
+    await drafts.remove(userId);
+    setDraftOffer(null);
+    setDraftMode('active');
+  };
+
+  /** The trip is safely queued or saved: the draft has done its job. */
+  const finishDraft = () => {
+    if (userId) void drafts.finish(userId);
+  };
   const [watchedLocation, watchedDate, watchedStart, watchedEnd, watchedStillFishing, watchedMultiDay, watchedEndDate] = useWatch({
     control: form.control,
     name: ['locationId', 'tripDate', 'startTime', 'endTime', 'stillFishing', 'multiDay', 'endDate'],
@@ -187,6 +276,7 @@ export function TripForm() {
 
     if (isEdit) {
       tripsApi.getById(id!).then((t) => {
+        if (t.locationDeleted && t.locationId) setRemovedSpot({ id: t.locationId, name: t.locationName ?? 'Removed spot' });
         form.reset({
           title: t.title ?? '',
           tripDate: t.tripDate,
@@ -257,6 +347,8 @@ export function TripForm() {
       }
 
       const result = await syncOne(entry.id);
+      // Refused by the server: the form keeps the trip (and its draft) so it can be fixed.
+      if (result.state !== 'failed') finishDraft();
       if (result.state === 'offline') {
         toast.success('Trip saved on this device.', {
           description: "It will upload by itself when you're back online.",
@@ -294,6 +386,25 @@ export function TripForm() {
         </CardHeader>
         <CardContent>
           <CastDivider />
+
+          {draftMode === 'offer' && draftOffer && (
+            <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-[color:var(--color-brass)]/50 bg-muted/40 p-3" role="status">
+              <FileClock className="size-5 shrink-0 text-[color:var(--color-brass)]" />
+              <div className="min-w-0 flex-1 text-sm">
+                <strong className="block">Continue your unsaved trip?</strong>
+                <span className="text-muted-foreground">
+                  {draftOffer.values.title || 'Untitled trip'} · {draftOffer.values.catches.length}{' '}
+                  {draftOffer.values.catches.length === 1 ? 'catch' : 'catches'}
+                  {draftOffer.photos.flat().length > 0 && ` · ${draftOffer.photos.flat().length} photos/videos`}
+                  {' '}· edited {formatDistanceToNow(new Date(draftOffer.savedAt), { addSuffix: true })}
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <Button type="button" size="sm" variant="ghost" onClick={discardDraft}>Discard</Button>
+                <Button type="button" size="sm" onClick={continueDraft}>Continue</Button>
+              </div>
+            </div>
+          )}
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -437,6 +548,7 @@ export function TripForm() {
                     <Select
                       items={[
                         ...locations.map((l) => ({ value: l.id, label: l.name })),
+                        ...(removedSpot ? [{ value: removedSpot.id, label: `${removedSpot.name} (removed)` }] : []),
                         { value: ADD_NEW_LOCATION, label: '+ Add new location' },
                       ]}
                       value={field.value || null}
@@ -457,6 +569,9 @@ export function TripForm() {
                         {locations.map((l) => (
                           <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
                         ))}
+                        {removedSpot && (
+                          <SelectItem value={removedSpot.id}>{removedSpot.name} (removed)</SelectItem>
+                        )}
                         <SelectItem value={ADD_NEW_LOCATION}>+ Add new location</SelectItem>
                       </SelectContent>
                     </Select>
@@ -713,6 +828,12 @@ export function TripForm() {
                 </p>
               )}
 
+              {!isEdit && draftSavedAt && (
+                <p className="m-0 flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <FileClock className="size-3.5" /> Draft saved on this device — you can close this page and continue later.
+                </p>
+              )}
+
               {!isEdit && !online && (
                 <p className="m-0 text-sm text-muted-foreground">
                   You're offline: the trip, its catches and photos/videos will be saved on this device and upload
@@ -722,7 +843,7 @@ export function TripForm() {
 
               <div className="flex gap-3">
                 <Button type="button" variant="outline" onClick={() => navigate(-1)}>
-                  Cancel
+                  {draftSavedAt ? 'Close' : 'Cancel'}
                 </Button>
                 <Button type="submit" disabled={form.formState.isSubmitting} className="flex-1">
                   {form.formState.isSubmitting ? 'Saving...' : !isEdit && !online ? 'Save on this device' : 'Save trip'}

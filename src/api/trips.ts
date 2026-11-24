@@ -1,6 +1,6 @@
 import { api } from './client';
 import type { Catch, CreateCatchPayload, PagedResult } from '../types/catch';
-import type { CreateTripPayload, PublishPreview, Trip, TripFeedFilter, TripFilter, UpdateTripPayload } from '../types/trip';
+import type { CreateTripPayload, DeletedTrip, PublishPreview, Trip, TripCounts, TripFeedFilter, TripFilter, UpdateTripPayload } from '../types/trip';
 import type { TripMapLocation } from '../types/conditions';
 
 function toQueryString(filter: object): string {
@@ -17,6 +17,10 @@ export const tripsApi = {
   getMine: (filter: TripFilter = {}) =>
     api.get<PagedResult<Trip>>(`/trips?${toQueryString(filter)}`),
 
+  /** All / published / private counts for the My Trips tabs, within the same dates. */
+  getCounts: (filter: Pick<TripFilter, 'startDate' | 'endDate'> = {}) =>
+    api.get<TripCounts>(`/trips/counts?${toQueryString(filter)}`),
+
   getFeed: (filter: TripFeedFilter = {}) =>
     api.get<PagedResult<Trip>>(`/trips/feed?${toQueryString(filter)}`),
 
@@ -32,6 +36,11 @@ export const tripsApi = {
     api.post<Trip>(`/trips/${id}/publish`, { disclosePrivateLocations }),
   /** Withdraw a published trip (FR-45). */
   unpublish: (id: string) => api.post<Trip>(`/trips/${id}/unpublish`),
+
+  /** Recently deleted (B-24): restorable for 30 days. */
+  getDeleted: () => api.get<DeletedTrip[]>('/trips/deleted'),
+  /** Brings a deleted trip back with its catches, as a private trip. */
+  restore: (id: string) => api.post<Trip>(`/trips/${id}/restore`),
   create: (payload: CreateTripPayload) => api.post<Trip>('/trips', payload),
   update: (id: string, payload: UpdateTripPayload) => api.put<Trip>(`/trips/${id}`, payload),
   remove: (id: string) => api.delete<void>(`/trips/${id}`),

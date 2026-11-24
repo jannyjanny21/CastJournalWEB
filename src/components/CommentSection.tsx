@@ -6,17 +6,22 @@ import { resolveMediaUrl } from '../utils/mediaUrl';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
 import { isOfflineError } from '../api/client';
+import { ReportButton } from './ReportDialog';
+import { useConfirm } from '../hooks/useConfirm';
 
 
 function CommentRow({
   comment,
   onUpdated,
   onDeleted,
+  canReport,
 }: {
   comment: Comment;
   onUpdated: (updated: Comment) => void;
   onDeleted: (id: string) => void;
+  canReport: boolean;
 }) {
+  const ask = useConfirm();
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(comment.content);
   const [busy, setBusy] = useState(false);
@@ -36,7 +41,7 @@ function CommentRow({
   };
 
   const remove = async () => {
-    if (busy || !confirm('Delete this comment?')) return;
+    if (busy || !(await ask({ title: 'Delete this comment?', confirmLabel: 'Delete', destructive: true }))) return;
     setBusy(true);
     try {
       await commentsApi.remove(comment.tripId, comment.id);
@@ -101,6 +106,11 @@ function CommentRow({
             <button onClick={remove} className="hover:text-destructive">Delete</button>
           </div>
         )}
+        {!comment.isOwnedByCurrentUser && canReport && (
+          <div className="mt-1">
+            <ReportButton targetType="Comment" targetId={comment.id} />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -109,10 +119,13 @@ function CommentRow({
 export function CommentSection({
   tripId,
   onCountChange,
+  canReport = false,
 }: {
   tripId: string;
   /** Called with the authoritative total whenever it changes (load, add, delete). */
   onCountChange?: (count: number) => void;
+  /** Comments on a published trip can be reported (F-18). */
+  canReport?: boolean;
 }) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -212,7 +225,7 @@ export function CommentSection({
 
       <div className="divide-y divide-border">
         {comments.map((c) => (
-          <CommentRow key={c.id} comment={c} onUpdated={handleUpdated} onDeleted={handleDeleted} />
+          <CommentRow key={c.id} comment={c} onUpdated={handleUpdated} onDeleted={handleDeleted} canReport={canReport} />
         ))}
       </div>
     </div>

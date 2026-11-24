@@ -1,10 +1,13 @@
 /** A minimal promise wrapper around IndexedDB for the offline features (F-13). */
 
 const DB_NAME = 'castjournal-offline';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
-/** responses: saved copies for reading offline. outbox: trips logged on this device, waiting to upload. */
-export const STORES = { responses: 'responses', outbox: 'outbox' } as const;
+/**
+ * responses: saved copies for reading offline. outbox: trips logged on this device, waiting to upload.
+ * drafts: a trip form you started but didn't save yet.
+ */
+export const STORES = { responses: 'responses', outbox: 'outbox', drafts: 'drafts' } as const;
 type StoreName = (typeof STORES)[keyof typeof STORES];
 
 let dbPromise: Promise<IDBDatabase> | null = null;
@@ -21,6 +24,7 @@ function openDb(): Promise<IDBDatabase> {
         const db = req.result;
         if (!db.objectStoreNames.contains(STORES.responses)) db.createObjectStore(STORES.responses);
         if (!db.objectStoreNames.contains(STORES.outbox)) db.createObjectStore(STORES.outbox);
+        if (!db.objectStoreNames.contains(STORES.drafts)) db.createObjectStore(STORES.drafts);
       };
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);

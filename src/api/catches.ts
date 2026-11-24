@@ -22,6 +22,8 @@ export const catchesApi = {
   getById: (id: string) => api.get<Catch>(`/catches/${id}`),
   update: (id: string, payload: CreateCatchPayload) => api.put<void>(`/catches/${id}`, payload),
   remove: (id: string) => api.delete<void>(`/catches/${id}`),
+  /** Undo a delete (B-24). */
+  restore: (id: string) => api.post<Catch>(`/catches/${id}/restore`),
 
   /** clientId: made on the device, so a retried upload doesn't add the file twice (F-13). */
   uploadMedia: (catchId: string, file: Blob, clientId?: string, fileName?: string) => {

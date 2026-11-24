@@ -210,16 +210,25 @@ export async function uploadFile<T>(path: string, formData: FormData, isRetry = 
   return response.status === 204 ? (undefined as T) : response.json();
 }
 
-export async function downloadFile(path: string, isRetry = false): Promise<{ blob: Blob; fileName: string }> {
+/** Downloads a file. Pass `json` to POST a body (e.g. the backup passphrase) instead of a GET. */
+export async function downloadFile(
+  path: string,
+  isRetry = false,
+  json?: unknown,
+): Promise<{ blob: Blob; fileName: string }> {
   const token = getToken();
+  const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+  if (json !== undefined) headers['Content-Type'] = 'application/json';
   const response = await send(`${API_BASE_URL}${path}`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    method: json !== undefined ? 'POST' : 'GET',
+    headers,
+    body: json !== undefined ? JSON.stringify(json) : undefined,
   });
 
   if (response.status === 401) {
     if (!isRetry) {
       const newToken = await tryRefreshToken();
-      if (newToken) return downloadFile(path, true);
+      if (newToken) return downloadFile(path, true, json);
     }
     onUnauthorized?.();
     throw { status: 401, message: 'Session expired.' } as ApiError;

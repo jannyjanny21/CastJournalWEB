@@ -22,6 +22,7 @@ import { AdminLayout } from './pages/admin/AdminLayout';
 import { ManageUsers } from './pages/admin/ManageUsers';
 import { ManageSpecies } from './pages/admin/ManageSpecies';
 import { ManageCategories } from './pages/admin/ManageCategories';
+import { Moderation } from './pages/admin/Moderation';
 import { MySpeciesRequests } from './pages/species/MySpeciesRequests';
 import { SystemReports } from './pages/admin/SystemReports';
 import { AuditLogs } from './pages/admin/AuditLogs';
@@ -33,6 +34,7 @@ import { ResetPassword } from './pages/auth/ResetPassword';
 import { PrivacyPolicy } from './pages/PrivacyPolicy';
 import { Dashboard } from './pages/dashboard/Dashboard';
 import { NotFound } from './pages/NotFound';
+import { RecentlyDeleted } from './pages/trips/RecentlyDeleted';
 
 
 
@@ -59,6 +61,7 @@ function App() {
         <Route element={<Layout />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/trips" element={<MyTrips />} />
+          <Route path="/trips/deleted" element={<RecentlyDeleted />} />
           <Route path="/map" element={<MyMap />} />
           <Route path="/trips/new" element={<TripForm />} />
           <Route path="/trips/:id" element={<TripDetail />} />
@@ -86,6 +89,7 @@ function App() {
               <Route path="users" element={<ManageUsers />} />
               <Route path="species" element={<ManageSpecies />} />
               <Route path="categories" element={<ManageCategories />} />
+              <Route path="moderation" element={<Moderation />} />
               <Route path="reports" element={<SystemReports />} />
               <Route path="audit-logs" element={<AuditLogs />} />
               <Route path="backup" element={<Backup />} />

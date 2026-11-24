@@ -7,7 +7,9 @@ import { tripsApi } from '../../api/trips';
 import { locationsApi } from '../../api/locations';
 import type { NearbyLocation, TripMapLocation } from '../../types/conditions';
 import type { ConditionsQuery } from '../../api/environment';
-import { DEFAULT_CENTER, DEFAULT_ZOOM, MUTED_MARKER_ICON, TILE_ATTRIBUTION, TILE_URL, hasPosition } from '../../components/map/leaflet';
+import { DEFAULT_CENTER, DEFAULT_ZOOM, MUTED_MARKER_ICON, TILE_ATTRIBUTION, TILE_URL, clusterIcon, hasPosition } from '../../components/map/leaflet';
+import MarkerClusterGroup from 'react-leaflet-cluster';
+import 'react-leaflet-cluster/dist/assets/MarkerCluster.css';
 import type { Location } from '../../types/location';
 import DEFAULT_PIN from 'leaflet/dist/images/marker-icon.png';
 import { formatTripDates } from '../../utils/trip';
@@ -106,7 +108,11 @@ export function MyMap() {
 
       <div className="grid gap-4 pt-6 lg:grid-cols-[1fr_320px]">
         <div className="space-y-3">
-          <div className="isolate h-[60vh] min-h-80 overflow-hidden rounded-lg border border-border">
+          <div
+            className="isolate h-[60vh] min-h-80 overflow-hidden rounded-lg border border-border"
+            role="region"
+            aria-label="Map of your fishing spots. Use the list beside it or the buttons below for the same information without the map."
+          >
             <MapContainer center={DEFAULT_CENTER} zoom={DEFAULT_ZOOM} style={{ height: '100%', width: '100%' }} scrollWheelZoom>
               <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} />
               <MapRef onReady={setMap} />
@@ -116,6 +122,14 @@ export function MyMap() {
                   setConditionsFor({ label: `${lat.toFixed(3)}, ${lng.toFixed(3)}`, query: { lat, lng } })}
               />
 
+              {/* Close-together spots group into one numbered circle until you zoom in. */}
+              <MarkerClusterGroup
+                chunkedLoading
+                iconCreateFunction={clusterIcon}
+                showCoverageOnHover={false}
+                spiderfyOnMaxZoom
+                maxClusterRadius={45}
+              >
               {trips.map((loc) => (
                 <Marker key={loc.locationId} position={[loc.latitude, loc.longitude]}>
                   <Popup>
@@ -158,6 +172,7 @@ export function MyMap() {
                   </Popup>
                 </Marker>
               ))}
+              </MarkerClusterGroup>
 
               {/* Nearest-spot results: a numbered ring matching the list beside the map. */}
               {nearest?.items.map((n, i) => (

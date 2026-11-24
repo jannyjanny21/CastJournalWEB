@@ -5,6 +5,7 @@ import { catchesApi } from '../api/catches';
 import type { CatchMedia } from '../types/catch';
 import { resolveMediaUrl } from '../utils/mediaUrl';
 import { apiErrorMessage } from '../utils/errorMessage';
+import { useConfirm } from '../hooks/useConfirm';
 
 /**
  * A catch's uploaded photos/videos: change their order (saved straight away, FR-10) or remove one.
@@ -18,6 +19,7 @@ export function MediaManager({
   media: CatchMedia[];
   onChange: (media: CatchMedia[]) => void;
 }) {
+  const ask = useConfirm();
   const [busy, setBusy] = useState(false);
   const ordered = [...media].sort((a, b) => a.orderIndex - b.orderIndex);
 
@@ -38,7 +40,7 @@ export function MediaManager({
   };
 
   const remove = async (m: CatchMedia) => {
-    if (!confirm(`Remove this ${m.mediaType === 'Video' ? 'video' : 'photo'}?`)) return;
+    if (!(await ask({ title: `Remove this ${m.mediaType === 'Video' ? 'video' : 'photo'}?`, confirmLabel: 'Remove', destructive: true }))) return;
     setBusy(true);
     try {
       await catchesApi.deleteMedia(m.id);
