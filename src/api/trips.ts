@@ -1,6 +1,6 @@
 import { api } from './client';
 import type { Catch, CreateCatchPayload, PagedResult } from '../types/catch';
-import type { CreateTripPayload, DeletedTrip, PublishPreview, Trip, TripFeedFilter, TripFilter, UpdateTripPayload } from '../types/trip';
+import type { CreateTripPayload, DeletedTrip, PublishPreview, Trip, TripCounts, TripFeedFilter, TripFilter, UpdateTripPayload } from '../types/trip';
 import type { TripMapLocation } from '../types/conditions';
 
 function toQueryString(filter: object): string {
@@ -16,6 +16,10 @@ function toQueryString(filter: object): string {
 export const tripsApi = {
   getMine: (filter: TripFilter = {}) =>
     api.get<PagedResult<Trip>>(`/trips?${toQueryString(filter)}`),
+
+  /** All / published / private counts for the My Trips tabs, within the same dates. */
+  getCounts: (filter: Pick<TripFilter, 'startDate' | 'endDate'> = {}) =>
+    api.get<TripCounts>(`/trips/counts?${toQueryString(filter)}`),
 
   getFeed: (filter: TripFeedFilter = {}) =>
     api.get<PagedResult<Trip>>(`/trips/feed?${toQueryString(filter)}`),

@@ -21,6 +21,9 @@ export interface Trip {
   locationDeleted: boolean;
   /** Owner chose to show private locations when publishing. */
   disclosesPrivateLocations: boolean;
+  /** An administrator removed it from the community after a report; it can't be republished (F-18). */
+  removedFromCommunity: boolean;
+  moderationReason: string | null;
   title: string | null;
   tripDate: string;
   startTime: string | null;
@@ -64,6 +67,8 @@ export interface CreateTripPayload extends UpdateTripPayload {
 export interface TripFilter {
   startDate?: string;
   endDate?: string;
+  /** My Trips tab: only published or only private trips. */
+  visibility?: 'published' | 'private';
   page?: number;
   pageSize?: number;
 }
@@ -101,4 +106,11 @@ export interface DeletedTrip {
   wasPublic: boolean;
   deletedAt: string;
   restorableUntil: string;
+}
+
+/** GET /api/trips/counts — numbers on the My Trips tabs. */
+export interface TripCounts {
+  all: number;
+  published: number;
+  private: number;
 }

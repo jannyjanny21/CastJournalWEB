@@ -7,8 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useConfirm } from '../../hooks/useConfirm';
 
 export function ManageUsers() {
+  const ask = useConfirm();
   const [result, setResult] = useState<PagedResult<UserSummary> | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(1);
@@ -41,7 +43,7 @@ export function ManageUsers() {
 
   const toggleActive = async (u: UserSummary) => {
     if (u.isActive) {
-      if (!confirm(`Deactivate ${u.email}?`)) return;
+      if (!(await ask({ title: `Deactivate ${u.email}?`, description: 'They won’t be able to sign in until you reactivate the account.', confirmLabel: 'Deactivate', destructive: true }))) return;
       await adminUsersApi.deactivate(u.id);
     } else {
       await adminUsersApi.reactivate(u.id);

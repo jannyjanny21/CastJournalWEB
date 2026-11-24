@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PasswordInput } from '@/components/ui/password-input';
+import { useConfirm } from '../../hooks/useConfirm';
 
 const MIN_PASSPHRASE = 10;
 
@@ -24,6 +25,7 @@ function save(blob: Blob, fileName: string) {
 
 /** System backup, restore and cleanup (FR-41, M-12). */
 export function Backup() {
+  const ask = useConfirm();
   // Export
   const [passphrase, setPassphrase] = useState('');
   const [confirmPassphrase, setConfirmPassphrase] = useState('');
@@ -60,7 +62,7 @@ export function Backup() {
 
   const handleRestore = async () => {
     if (!file) return;
-    if (!confirm('Restore this backup? Records that are missing here will be added back. Nothing that already exists is changed, and anything anglers deleted stays deleted.')) return;
+    if (!(await ask({ title: 'Restore this backup?', description: 'Records that are missing here will be added back. Nothing that already exists is changed, and anything anglers deleted stays deleted.', confirmLabel: 'Restore' }))) return;
     setRestoring(true);
     setRestoreError(null);
     setRestoreResult(null);
@@ -83,7 +85,7 @@ export function Backup() {
   const handleCleanup = async () => {
     const days = Math.max(30, Number(retention) || 30);
     const auditDays = Math.max(30, Number(auditRetention) || 365);
-    if (!confirm(`Permanently remove trips, catches and spots deleted more than ${days} days ago, with their photos and videos? This can't be undone.`)) return;
+    if (!(await ask({ title: 'Permanently remove old deleted records?', description: `Trips, catches and spots deleted more than ${days} days ago are removed with their photos and videos. This can't be undone.`, confirmLabel: 'Remove permanently', destructive: true }))) return;
     setCleaning(true);
     try {
       setCleanupResult(await backupApi.cleanup(days, auditDays));

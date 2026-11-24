@@ -17,8 +17,12 @@ import { Button } from '@/components/ui/button';
 import { CommentSection } from '../../components/CommentSection';
 import { ShareButton } from '../../components/ShareButton';
 import { PublishDialog } from '../../components/PublishDialog';
+import { ReportButton } from '../../components/ReportDialog';
 import { LocationMiniMap } from '../../components/map/LocationMiniMap';
 import { hasPosition } from '../../components/map/leaflet';
+import { TripOwnerMenu } from '../../components/TripOwnerMenu';
+import { useConfirm } from '../../hooks/useConfirm';
+import { to12h } from '../../utils/time';
 
 function CatchBlock({ item, isOwner, tripLocationId, onDeleted }: {
   item: Catch;
@@ -27,9 +31,10 @@ function CatchBlock({ item, isOwner, tripLocationId, onDeleted }: {
   onDeleted: (id: string) => void;
 }) {
   const media = [...item.media].sort((a, b) => a.orderIndex - b.orderIndex);
+  const ask = useConfirm();
 
   const handleDelete = async () => {
-    if (!confirm('Remove this catch from the trip?')) return;
+    if (!(await ask({ title: 'Remove this catch from the trip?', description: 'You can undo this right after.', confirmLabel: 'Remove', destructive: true }))) return;
     try {
       await catchesApi.remove(item.id);
       onDeleted(item.id);
@@ -84,7 +89,9 @@ function CatchBlock({ item, isOwner, tripLocationId, onDeleted }: {
 }
 
 /** One conditions field; a multi-day trip stores one "Sat, Nov 22: …" line per day. */
-function ConditionsLine({ label, text }: { label: string; text: string }) {
+function ConditionsLine({ label, text: raw }: { label: string; text: string }) {
+  // Older snapshots were saved with 24-hour times ("15:12"); show every time as AM/PM.
+  const text = raw.replace(/\b([01]?\d|2[0-3]):([0-5]\d)\b(?!\s?[AP]M)/g, (t) => to12h(t));
   const lines = text.split('\n').filter(Boolean);
   if (lines.length <= 1) return <p className="m-0"><strong>{label}:</strong> {text}</p>;
   return (
@@ -119,49 +126,8 @@ function TripView({ trip, onChange, openPublish }: { trip: Trip; onChange: (t: T
     if (openPublish) navigate(location.pathname + location.hash, { replace: true, state: null });
   }, [openPublish, navigate, location.pathname, location.hash]);
 
-  const [withdrawing, setWithdrawing] = useState(false);
-  const handleWithdraw = async () => {
-    if (!confirm('Withdraw this trip? It becomes private again and leaves the community feed.')) return;
-    setWithdrawing(true);
-    try {
-      onChange(await tripsApi.unpublish(trip.id));
-      toast.success('Trip withdrawn — it is private again.');
-    } catch {
-      toast.error("Couldn't withdraw this trip — try again.");
-    } finally {
-      setWithdrawing(false);
-    }
-  };
-
   const showMap = trip.locationLatitude != null && trip.locationLongitude != null
     && hasPosition(trip.locationLatitude, trip.locationLongitude);
-
-  const handleDelete = async () => {
-    // Soft delete (B-24): the trip and its catches go to Recently deleted for 30 days.
-    if (!confirm('Delete this trip and its catches? You can restore it from My Trips → Recently deleted for 30 days.')) return;
-    try {
-      await tripsApi.remove(trip.id);
-      const id = trip.id;
-      toast('Trip moved to Recently deleted.', {
-        duration: 8000,
-        action: {
-          label: 'Undo',
-          onClick: async () => {
-            try {
-              await tripsApi.restore(id);
-              navigate(`/trips/${id}`);
-              toast.success('Trip restored. It\u2019s private now; publish it again if you want.');
-            } catch {
-              toast.error("Couldn't restore — try from Recently deleted.");
-            }
-          },
-        },
-      });
-      navigate('/trips');
-    } catch (err) {
-      toast.error(isOfflineError(err) ? "Couldn't delete, no connection." : "Couldn't delete this trip — try again.");
-    }
-  };
 
   const [refreshing, setRefreshing] = useState(false);
   const handleRefreshConditions = async () => {
@@ -214,26 +180,27 @@ function TripView({ trip, onChange, openPublish }: { trip: Trip; onChange: (t: T
               <strong className="text-sm">{trip.userFullName ?? 'Angler'}</strong>
             </Link>
             {isOwner && (
-              <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
-                {trip.isPublic ? <Globe className="size-3.5" /> : <Lock className="size-3.5" />}
-                {trip.isPublic ? 'Published' : 'Private'}
-                {trip.isPublic && trip.disclosesPrivateLocations && ' · spot shown'}
-              </span>
+              <div className="ml-auto flex items-center gap-1">
+                <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
+                  {trip.isPublic ? <Globe className="size-3.5" /> : <Lock className="size-3.5" />}
+                  {trip.isPublic ? 'Published' : 'Private'}
+                  {trip.isPublic && trip.disclosesPrivateLocations && ' · spot shown'}
+                </span>
+                <TripOwnerMenu trip={trip} onChange={onChange} onDeleted={() => navigate('/trips')} />
+              </div>
             )}
           </div>
 
-          {isOwner && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {trip.isPublic ? (
-                <>
-                  <Button variant="outline" size="sm" onClick={() => setPublishOpen(true)}>Change location visibility</Button>
-                  <Button variant="outline" size="sm" onClick={handleWithdraw} disabled={withdrawing}>
-                    {withdrawing ? 'Withdrawing…' : 'Withdraw'}
-                  </Button>
-                </>
-              ) : (
-                <Button size="sm" onClick={() => setPublishOpen(true)}><Globe className="size-4" /> Publish…</Button>
-              )}
+          {isOwner && trip.removedFromCommunity && (
+            <p className="mt-3 rounded-md border border-destructive/40 bg-destructive/5 p-2 text-sm">
+              An administrator removed this trip from the community
+              {trip.moderationReason ? <>: <strong>{trip.moderationReason}</strong></> : ''}. It stays in your journal
+              as a private trip and can't be published again.
+            </p>
+          )}
+          {isOwner && !trip.removedFromCommunity && !trip.isPublic && (
+            <div className="mt-3">
+              <Button size="sm" onClick={() => setPublishOpen(true)}><Globe className="size-4" /> Publish…</Button>
             </div>
           )}
 
@@ -316,18 +283,20 @@ function TripView({ trip, onChange, openPublish }: { trip: Trip; onChange: (t: T
               tripId={trip.id}
               className="h-auto gap-1.5 p-0 text-sm normal-case tracking-normal text-muted-foreground hover:bg-transparent hover:text-foreground"
             />
+
+            {!isOwner && trip.isPublic && (
+              <ReportButton
+                targetType="Trip"
+                targetId={trip.id}
+                className="ml-auto inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-destructive"
+              />
+            )}
           </div>
 
-          <CommentSection tripId={trip.id} />
+          <div id="comments">
+            <CommentSection tripId={trip.id} canReport={trip.isPublic} />
+          </div>
 
-          {isOwner && (
-            <div className="mt-4 flex gap-3">
-              <Link to={`/trips/${trip.id}/edit`}>
-                <Button variant="outline">Edit trip</Button>
-              </Link>
-              <Button variant="destructive" onClick={handleDelete}>Delete trip</Button>
-            </div>
-          )}
         </CardContent>
       </Card>
 

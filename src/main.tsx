@@ -9,6 +9,7 @@ import './hooks/useInstallPrompt';
 import App from './App';
 import { ReloadPrompt } from './components/ReloadPrompt';
 import { OutboxSync } from './components/OutboxSync';
+import { ConfirmProvider } from './components/ConfirmProvider';
 import './index.css';
 
 createRoot(document.getElementById('root')!).render(
@@ -16,10 +17,12 @@ createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
       <AuthProvider>
         <NotificationsProvider>
-          <App />
-          <Toaster position="bottom-right" richColors closeButton />
-          <ReloadPrompt />
-          <OutboxSync />
+          <ConfirmProvider>
+            <App />
+            <Toaster position="bottom-right" richColors closeButton />
+            <ReloadPrompt />
+            <OutboxSync />
+          </ConfirmProvider>
         </NotificationsProvider>
       </AuthProvider>
     </BrowserRouter>

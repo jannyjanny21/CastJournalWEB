@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import { useConfirm } from '../../hooks/useConfirm';
 
 const TYPES: { type: CategoryType; label: string; singular: string }[] = [
   { type: 'GearType', label: 'Gear', singular: 'gear type' },
@@ -23,6 +24,7 @@ type Editing = { id: string | null; name: string; description: string };
  * Values are deactivated rather than deleted: old catches keep what they recorded.
  */
 export function ManageCategories() {
+  const ask = useConfirm();
   const [active, setActive] = useState<CategoryType>('GearType');
   const [items, setItems] = useState<{ type: CategoryType; list: ContentCategory[] } | null>(null);
   const [editing, setEditing] = useState<Editing | null>(null);
@@ -75,7 +77,7 @@ export function ManageCategories() {
   };
 
   const toggleActive = async (c: ContentCategory) => {
-    if (c.isActive && !confirm(`Deactivate '${c.name}'? Anglers won't be able to pick it for new catches; existing catches keep it.`)) return;
+    if (c.isActive && !(await ask({ title: `Deactivate '${c.name}'?`, description: "Anglers won't be able to pick it for new catches; existing catches keep it.", confirmLabel: 'Deactivate' }))) return;
     try {
       await contentCategoriesApi.update(c.id, { isActive: !c.isActive });
       load(active);

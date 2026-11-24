@@ -5,6 +5,7 @@ import { useOfflineStatus } from '../offline/status';
 import { formatTripDates } from '../utils/trip';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { useConfirm } from '../hooks/useConfirm';
 
 function describe(e: OutboxEntry): string {
   const catches = e.catches.length;
@@ -19,6 +20,7 @@ function describe(e: OutboxEntry): string {
 
 /** Trips logged on this device that haven't reached the server yet (F-13). */
 export function PendingTrips() {
+  const ask = useConfirm();
   const { entries, syncing } = useOutbox();
   const { online } = useOfflineStatus();
   if (entries.length === 0) return null;
@@ -75,11 +77,11 @@ export function PendingTrips() {
                 variant="ghost"
                 className="text-muted-foreground hover:text-destructive"
                 disabled={e.status === 'syncing'}
-                onClick={() => {
-                  const msg = e.status === 'attention'
-                    ? 'Stop trying? The trip is already saved; only the parts that failed will be dropped.'
-                    : 'Discard this trip? It hasn’t been uploaded, so it will be lost.';
-                  if (confirm(msg)) void outbox.remove(e.id);
+                onClick={async () => {
+                  const ok = await ask(e.status === 'attention'
+                    ? { title: 'Stop trying?', description: 'The trip is already saved; only the parts that failed will be dropped.', confirmLabel: 'Dismiss' }
+                    : { title: 'Discard this trip?', description: 'It hasn’t been uploaded, so it will be lost.', confirmLabel: 'Discard', destructive: true });
+                  if (ok) void outbox.remove(e.id);
                 }}
               >
                 {e.status === 'attention' ? 'Dismiss' : 'Discard'}

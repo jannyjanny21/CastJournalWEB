@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { useConfirm } from '../../hooks/useConfirm';
 
 const speciesSchema = z.object({
   commonName: z.string().min(1, 'Common name is required'),
@@ -26,6 +27,7 @@ type SpeciesValues = z.infer<typeof speciesSchema>;
 const emptyValues: SpeciesValues = { commonName: '', scientificName: '', category: '', description: '' };
 
 export function ManageSpecies() {
+  const ask = useConfirm();
   const [species, setSpecies] = useState<Species[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -77,7 +79,7 @@ export function ManageSpecies() {
   };
 
   const handleDelete = async (s: Species) => {
-    if (!confirm(`Delete "${s.commonName}"?`)) return;
+    if (!(await ask({ title: `Delete "${s.commonName}"?`, confirmLabel: 'Delete', destructive: true }))) return;
     try {
       await adminSpeciesApi.remove(s.id);
       load();

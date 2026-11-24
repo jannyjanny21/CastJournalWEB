@@ -15,6 +15,7 @@ import { MapPicker } from '../../components/map/MapPicker';
 import { hasPosition } from '../../components/map/leaflet';
 import { toast } from 'sonner';
 import { apiErrorMessage } from '../../utils/errorMessage';
+import { useConfirm } from '../../hooks/useConfirm';
 
 const coordinate = (label: string, min: number, max: number) =>
   z
@@ -42,6 +43,7 @@ const emptyValues: LocationValues = {
 };
 
 export function MyLocations() {
+  const ask = useConfirm();
   const [locations, setLocations] = useState<Location[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -110,7 +112,7 @@ export function MyLocations() {
 
   const handleDelete = async (l: Location) => {
     // B-12: the spot leaves your list and pickers; trips that used it keep showing it.
-    if (!confirm(`Remove "${l.name}" from your spots? Trips you logged there will still show it.`)) return;
+    if (!(await ask({ title: `Remove "${l.name}" from your spots?`, description: 'Trips you logged there will still show it.', confirmLabel: 'Remove', destructive: true }))) return;
     try {
       await locationsApi.remove(l.id);
       load();

@@ -22,6 +22,7 @@ import { AdminLayout } from './pages/admin/AdminLayout';
 import { ManageUsers } from './pages/admin/ManageUsers';
 import { ManageSpecies } from './pages/admin/ManageSpecies';
 import { ManageCategories } from './pages/admin/ManageCategories';
+import { Moderation } from './pages/admin/Moderation';
 import { MySpeciesRequests } from './pages/species/MySpeciesRequests';
 import { SystemReports } from './pages/admin/SystemReports';
 import { AuditLogs } from './pages/admin/AuditLogs';
@@ -88,6 +89,7 @@ function App() {
               <Route path="users" element={<ManageUsers />} />
               <Route path="species" element={<ManageSpecies />} />
               <Route path="categories" element={<ManageCategories />} />
+              <Route path="moderation" element={<Moderation />} />
               <Route path="reports" element={<SystemReports />} />
               <Route path="audit-logs" element={<AuditLogs />} />
               <Route path="backup" element={<Backup />} />

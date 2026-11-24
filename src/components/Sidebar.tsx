@@ -12,6 +12,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useInstallPrompt } from '../hooks/useInstallPrompt';
 import { outbox, useOutbox } from '../offline/outbox';
+import { useConfirm } from '../hooks/useConfirm';
 
 const mainLinks = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -30,6 +31,7 @@ const STORAGE_KEY = 'castjournal:sidebar-collapsed';
 const MOBILE_TOPBAR_CLASS = 'h-14';
 
 export function Sidebar() {
+  const ask = useConfirm();
   const { user, logout } = useAuth();
   // Offered by Chrome/Edge/Android; installed, the app opens without the browser bar and works offline (F-13).
   const install = useInstallPrompt();
@@ -39,9 +41,12 @@ export function Sidebar() {
   const handleLogout = async () => {
     if (queued.length > 0) {
       const n = queued.length;
-      const ok = confirm(
-        `${n} ${n === 1 ? 'trip hasn\u2019t' : 'trips haven\u2019t'} uploaded yet. Logging out deletes ${n === 1 ? 'it' : 'them'} from this device. Log out anyway?`,
-      );
+      const ok = await ask({
+        title: 'Log out anyway?',
+        description: `${n} ${n === 1 ? 'trip hasn\u2019t' : 'trips haven\u2019t'} uploaded yet. Logging out deletes ${n === 1 ? 'it' : 'them'} from this device.`,
+        confirmLabel: 'Log out',
+        destructive: true,
+      });
       if (!ok) return;
       if (user) await outbox.clearUser(user.id);
     }

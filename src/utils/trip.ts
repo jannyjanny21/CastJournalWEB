@@ -1,5 +1,6 @@
 import type { Trip } from '../types/trip';
 import type { CatchMedia } from '../types/catch';
+import { to12h } from './time';
 
 /**
  * "2026-11-22" → local date string. Parsing a bare date with `new Date()` treats it as UTC
@@ -71,8 +72,8 @@ export function daysBetween(a: string, b: string): number {
 
 /** "06:00–16:00", or "06:00 → 16:00" for a multi-day trip (start on day 1, end on the last day). */
 export function timeRange(trip: Trip): string | null {
-  const start = toTimeInput(trip.startTime);
-  const end = toTimeInput(trip.endTime);
+  const start = to12h(toTimeInput(trip.startTime));
+  const end = to12h(toTimeInput(trip.endTime));
   if (start && end) return isMultiDay(trip) ? `${start} → ${end}` : `${start}–${end}`;
   if (start && !end) return `from ${start}`;
   return start || end || null;

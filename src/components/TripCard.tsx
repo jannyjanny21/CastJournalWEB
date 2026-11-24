@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
-import { Heart, MessageCircle, Fish } from 'lucide-react';
+import { Heart, MessageCircle, Fish, MoreHorizontal, Flag } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import type { Trip } from '../types/trip';
 import { useTripLike } from '../hooks/useTripLike';
@@ -10,15 +10,29 @@ import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { PostDialog } from './PostDialog';
 import { ShareButton } from './ShareButton';
+import { ReportDialog } from './ReportDialog';
+import { useAuth } from '../context/useAuth';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
+import { TripOwnerMenu } from './TripOwnerMenu';
 
-export function TripCard({ item }: { item: Trip }) {
+export function TripCard({ item: initial }: { item: Trip }) {
+  const [item, setItem] = useState(initial);
+  // Withdrawn or deleted from this card: it no longer belongs in a feed of published trips.
+  const [gone, setGone] = useState(false);
   const { liked, likeCount, busy, toggleLike } = useTripLike(item);
   const [commentCount, setCommentCount] = useState(item.commentCount ?? 0);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [reporting, setReporting] = useState(false);
+  const { user } = useAuth();
+  // Facebook-style "⋯" on someone else's published trip (F-18).
+  const canReport = item.isPublic && !!user && user.id !== item.userId;
+  const isOwner = !!user && user.id === item.userId;
 
   const cover = tripCoverMedia(item);
   const postedAt = item.publishedAt ?? item.createdAt;
   const times = timeRange(item);
+
+  if (gone) return null;
 
   return (
     <>
@@ -33,9 +47,34 @@ export function TripCard({ item }: { item: Trip }) {
               )}
               <strong className="text-sm">{item.userFullName ?? 'Angler'}</strong>
             </Link>
-            <span className="text-mono text-xs text-muted-foreground" title={new Date(postedAt).toLocaleString()}>
-              {formatDistanceToNow(new Date(postedAt), { addSuffix: true })}
-            </span>
+            <div className="flex items-center gap-1">
+              <span className="text-mono text-xs text-muted-foreground" title={new Date(postedAt).toLocaleString()}>
+                {formatDistanceToNow(new Date(postedAt), { addSuffix: true })}
+              </span>
+              {isOwner && (
+                <TripOwnerMenu
+                  trip={item}
+                  className="-mr-1"
+                  onChange={(t) => (t.isPublic ? setItem(t) : setGone(true))}
+                  onDeleted={() => setGone(true)}
+                />
+              )}
+              {canReport && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    aria-label="More options"
+                    className="-mr-1 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  >
+                    <MoreHorizontal className="size-4" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem onClick={() => setReporting(true)}>
+                      <Flag /> Report trip
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
           </div>
 
           {cover && cover.mediaType === 'Video' ? (
@@ -116,6 +155,7 @@ export function TripCard({ item }: { item: Trip }) {
         busy={busy}
         onCommentCountChange={setCommentCount}
       />
+      {reporting && <ReportDialog targetType="Trip" targetId={item.id} onClose={() => setReporting(false)} />}
     </>
   );
 }
