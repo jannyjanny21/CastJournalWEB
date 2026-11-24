@@ -1,6 +1,15 @@
+import { useNavigate } from 'react-router-dom';
+
 export function PrivacyPolicy() {
+  const navigate = useNavigate();
+  // Opened from the Register checkbox in a new tab there's no history to go back to.
+  const goBack = () => (window.history.length > 1 ? navigate(-1) : navigate('/'));
+
   return (
     <div className="mx-auto max-w-3xl px-6 py-12 text-foreground">
+      <button type="button" onClick={goBack} className="mb-6 text-sm text-muted-foreground hover:text-foreground">
+        ← Back
+      </button>
       <h1 className="mb-2 text-3xl font-semibold">Privacy Policy</h1>
       <p className="mb-8 text-sm text-muted-foreground">Last updated: November 2026</p>
 

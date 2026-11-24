@@ -55,6 +55,9 @@ export function AuthLayout({ children }: { children: ReactNode }) {
             Your fishing log, your way — track catches, spots, and stories.
           </p>
           {children}
+          <p className="mt-6 text-center text-xs text-muted-foreground">
+            <Link to="/privacy" className="underline underline-offset-4 hover:text-foreground">Privacy notice</Link>
+          </p>
         </div>
       </div>
     </div>
