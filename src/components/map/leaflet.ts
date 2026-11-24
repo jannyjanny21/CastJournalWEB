@@ -1,3 +1,4 @@
+/// <reference types="leaflet.markercluster" />
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
@@ -24,6 +25,20 @@ export const MUTED_MARKER_ICON = L.icon({
   iconUrl: markerIcon,
   className: 'cj-marker-muted',
 });
+
+/**
+ * Grouped pins (F-27): nearby spots merge into one numbered circle when zoomed out, and split
+ * apart on click or zoom. Sized by how many spots it holds; styled in index.css (.cj-cluster).
+ */
+export function clusterIcon(cluster: L.MarkerCluster): L.DivIcon {
+  const count = cluster.getChildCount();
+  const size = count < 10 ? 34 : count < 50 ? 40 : 48;
+  return L.divIcon({
+    html: `<span>${count}</span>`,
+    className: 'cj-cluster',
+    iconSize: L.point(size, size),
+  });
+}
 
 /**
  * Raster tiles. OpenStreetMap's own servers are fine for development and a capstone demo, but their

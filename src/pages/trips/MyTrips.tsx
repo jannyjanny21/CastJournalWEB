@@ -9,6 +9,7 @@ import { CatchRowSkeleton } from '../../components/CatchRowSkeleton';
 import { PendingTrips } from '../../components/PendingTrips';
 import { useOutbox } from '../../offline/outbox';
 import { TripOwnerMenu } from '../../components/TripOwnerMenu';
+import { TripStatusBadge } from '../../components/TripStatusBadge';
 import { formatTripDates, timeRange, tripHeading } from '../../utils/trip';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
@@ -157,7 +158,10 @@ export function MyTrips() {
                   <CardContent className="flex flex-row items-center justify-between gap-3">
                     {/* The whole row opens the trip; the ⋯ menu sits above the link. */}
                     <Link to={`/trips/${t.id}`} className="min-w-0 flex-1 text-inherit no-underline after:absolute after:inset-0">
-                      <strong className="block truncate">{tripHeading(t)}</strong>
+                      <span className="flex min-w-0 items-center gap-2">
+                        <strong className="truncate">{tripHeading(t)}</strong>
+                        <TripStatusBadge trip={t} isOwner className="shrink-0" />
+                      </span>
                       <div className="font-mono text-sm text-muted-foreground">
                         {[formatTripDates(t), times, t.locationName ?? 'No location'].filter(Boolean).join(' · ')} · {t.catchCount}{' '}
                         {t.catchCount === 1 ? 'catch' : 'catches'}

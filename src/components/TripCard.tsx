@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
-import { Heart, MessageCircle, Fish, MoreHorizontal, Flag } from 'lucide-react';
+import { Heart, MessageCircle, Fish, MoreHorizontal, Flag, Images } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import type { Trip } from '../types/trip';
 import { useTripLike } from '../hooks/useTripLike';
@@ -14,6 +14,9 @@ import { ReportDialog } from './ReportDialog';
 import { useAuth } from '../context/useAuth';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { TripOwnerMenu } from './TripOwnerMenu';
+import { TripStatusBadge } from './TripStatusBadge';
+import { MediaViewer } from './MediaViewer';
+import { tripViewerItems } from '../utils/viewer';
 
 export function TripCard({ item: initial }: { item: Trip }) {
   const [item, setItem] = useState(initial);
@@ -31,6 +34,9 @@ export function TripCard({ item: initial }: { item: Trip }) {
   const cover = tripCoverMedia(item);
   const postedAt = item.publishedAt ?? item.createdAt;
   const times = timeRange(item);
+  const viewerItems = tripViewerItems(item);
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  const openCover = () => setViewerIndex(Math.max(0, viewerItems.findIndex((v) => v.id === cover?.id)));
 
   if (gone) return null;
 
@@ -84,19 +90,34 @@ export function TripCard({ item: initial }: { item: Trip }) {
               className="w-full h-auto max-h-[32rem] rounded-lg mb-3 bg-muted"
             />
           ) : cover ? (
-            <img
-              src={resolveMediaUrl(cover.mediaUrl)}
-              alt={tripHeading(item)}
-              className="w-full h-auto max-h-[32rem] object-contain rounded-lg mb-3 bg-muted"
-            />
+            <button
+              type="button"
+              onClick={openCover}
+              aria-label={`Open ${viewerItems.length > 1 ? `all ${viewerItems.length} photos and videos` : 'photo'} full screen`}
+              className="relative mb-3 block w-full cursor-zoom-in rounded-lg bg-muted focus-visible:outline-2 focus-visible:outline-ring"
+            >
+              <img
+                src={resolveMediaUrl(cover.mediaUrl)}
+                alt={tripHeading(item)}
+                className="w-full h-auto max-h-[32rem] object-contain rounded-lg"
+              />
+              {viewerItems.length > 1 && (
+                <span className="absolute right-2 bottom-2 inline-flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-xs text-white">
+                  <Images className="size-3.5" /> {viewerItems.length}
+                </span>
+              )}
+            </button>
           ) : null}
 
-          <Link
-            to={`/trips/${item.id}`}
-            className="text-foreground no-underline transition-colors hover:text-brass hover:underline"
-          >
-            <strong>{tripHeading(item)}</strong>
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              to={`/trips/${item.id}`}
+              className="text-foreground no-underline transition-colors hover:text-brass hover:underline"
+            >
+              <strong>{tripHeading(item)}</strong>
+            </Link>
+            <TripStatusBadge trip={item} isOwner={isOwner} editHref={`/trips/${item.id}/edit`} />
+          </div>
           <div className="text-mono text-sm text-muted-foreground mb-2">
             {[item.locationName, formatTripDates(item), times].filter(Boolean).join(' · ')}
           </div>
@@ -123,10 +144,11 @@ export function TripCard({ item: initial }: { item: Trip }) {
               variant="ghost"
               size="sm"
               onClick={toggleLike}
-              disabled={busy}
+              disabled={busy} aria-pressed={liked}
+              aria-label={`${liked ? 'Unlike' : 'Like'} this trip, ${likeCount} ${likeCount === 1 ? 'like' : 'likes'}`}
               className={`px-2 ${liked ? 'text-destructive' : 'text-muted-foreground'} hover:text-destructive`}
             >
-              <Heart className="size-4" fill={liked ? 'currentColor' : 'none'} />
+              <Heart aria-hidden="true" className="size-4" fill={liked ? 'currentColor' : 'none'} />
               {likeCount}
             </Button>
 
@@ -155,6 +177,7 @@ export function TripCard({ item: initial }: { item: Trip }) {
         busy={busy}
         onCommentCountChange={setCommentCount}
       />
+      <MediaViewer items={viewerItems} index={viewerIndex} onIndexChange={setViewerIndex} onClose={() => setViewerIndex(null)} />
       {reporting && <ReportDialog targetType="Trip" targetId={item.id} onClose={() => setReporting(false)} />}
     </>
   );

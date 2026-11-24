@@ -11,6 +11,7 @@ import {
 import type { AuthResponse, CurrentUser, DecodedToken } from '../types/auth';
 import { AuthContext } from './auth-context';
 import { clearSavedResponses, pruneSavedResponses, setReadCacheUser } from '../offline/readCache';
+import { drafts } from '../offline/drafts';
 
 const TOKEN_KEY = 'castjournal_token';
 const REFRESH_TOKEN_KEY = 'castjournal_refresh_token';
@@ -65,6 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const clearSession = (expired = false) => {
     // Saved offline copies belong to this angler; don't leave them for the next person on this device.
     void clearSavedResponses();
+    void drafts.clearAll();
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(REFRESH_TOKEN_KEY);
     setToken(null);

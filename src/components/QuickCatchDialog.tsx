@@ -10,6 +10,7 @@ import { useAuth } from '../context/useAuth';
 import { catchDateRange, tripHeading } from '../utils/trip';
 import { MAX_MEDIA_PER_CATCH } from '../utils/media';
 import { MediaPicker } from './MediaPicker';
+import { catchDrafts, catchDraftTarget, toFiles } from '../offline/drafts';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +21,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 export type QuickCatchTarget =
   | { kind: 'saved'; trip: Trip }
   | { kind: 'queued'; entry: OutboxEntry };
+
+/** Where this target's unfinished catch is kept on the device. */
+function draftTargetOf(target: QuickCatchTarget): string {
+  return target.kind === 'saved' ? catchDraftTarget.saved(target.trip.id) : catchDraftTarget.queued(target.entry.id);
+}
 
 /** Name shown for the target trip. */
 function targetName(target: QuickCatchTarget): string {
@@ -47,6 +53,12 @@ export function QuickCatchDialog({ target, open, onOpenChange, onSaved }: {
   const [photos, setPhotos] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const userId = user?.id;
+  const draftTarget = draftTargetOf(target);
+  // The draft is autosaved only once it has been loaded for this opening, so an empty form
+  // never overwrites a saved one. null while closed or loading.
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  const [restored, setRestored] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -54,8 +66,49 @@ export function QuickCatchDialog({ target, open, onOpenChange, onSaved }: {
     speciesApi.getAll().then(setSpecies).catch(() => {});
   }, [open]);
 
+  // Opening: bring back an unfinished catch for this trip, if there is one.
+  useEffect(() => {
+    if (!open || !userId) return;
+    let cancelled = false;
+    catchDrafts.load(userId, draftTarget).then((d) => {
+      if (cancelled) return;
+      if (d) {
+        setSpeciesId(d.speciesId); setWeight(d.weight); setLength(d.length); setNotes(d.notes);
+        setPhotos(toFiles([d.photos])[0]);
+        setRestored(true);
+      }
+      setLoadedFor(draftTarget);
+    });
+    return () => { cancelled = true; };
+  }, [open, userId, draftTarget]);
+
+  // Typing: keep the unfinished catch on the device (removed again once the form is empty).
+  useEffect(() => {
+    if (!open || !userId || loadedFor !== draftTarget) return;
+    const timer = window.setTimeout(() => {
+      const empty = !speciesId && !weight.trim() && !length.trim() && !notes.trim() && photos.length === 0;
+      if (empty) void catchDrafts.remove(userId, draftTarget);
+      else void catchDrafts.save(userId, draftTarget, { speciesId, weight, length, notes }, photos);
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [open, userId, loadedFor, draftTarget, speciesId, weight, length, notes, photos]);
+
   const reset = () => {
-    setSpeciesId(''); setWeight(''); setLength(''); setNotes(''); setPhotos([]); setError(null);
+    setSpeciesId(''); setWeight(''); setLength(''); setNotes(''); setPhotos([]); setError(null); setRestored(false);
+  };
+
+  const close = (o: boolean) => {
+    // The draft stays on the device; it comes back next time Quick catch opens for this trip.
+    if (!o) {
+      setLoadedFor(null);
+      reset();
+    }
+    onOpenChange(o);
+  };
+
+  const clearDraft = () => {
+    reset();
+    if (userId) void catchDrafts.remove(userId, draftTarget);
   };
 
   const number = (v: string) => (v.trim() === '' ? null : Number(v));
@@ -129,6 +182,8 @@ export function QuickCatchDialog({ target, open, onOpenChange, onSaved }: {
           toast.warning('The catch needs attention — see "Waiting to upload" in My Trips.', { description: result.error });
         }
       }
+      if (userId) await catchDrafts.finish(userId, draftTarget);
+      setLoadedFor(null);
       reset();
       onOpenChange(false);
     } finally {
@@ -137,7 +192,7 @@ export function QuickCatchDialog({ target, open, onOpenChange, onSaved }: {
   };
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!saving) onOpenChange(o); }}>
+    <Dialog open={open} onOpenChange={(o) => { if (!saving) close(o); }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><Fish className="size-5" /> Quick catch</DialogTitle>
@@ -148,6 +203,12 @@ export function QuickCatchDialog({ target, open, onOpenChange, onSaved }: {
         </DialogHeader>
 
         <div className="space-y-3">
+          {restored && (
+            <p className="m-0 flex items-center justify-between gap-2 rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground" role="status">
+              Restored your unfinished catch.
+              <button type="button" onClick={clearDraft} className="underline hover:text-foreground">Clear</button>
+            </p>
+          )}
           <div className="space-y-1">
             <Label>Species *</Label>
             <Select items={species.map((s) => ({ value: s.id, label: s.commonName }))} value={speciesId} onValueChange={(v) => setSpeciesId(String(v ?? ''))}>
@@ -177,7 +238,7 @@ export function QuickCatchDialog({ target, open, onOpenChange, onSaved }: {
 
         <DialogFooter className="items-center sm:justify-between">
           {target.kind === 'saved' ? (
-            <Link to={`/trips/${target.trip.id}/catches/new`} className="text-sm text-muted-foreground underline" onClick={() => onOpenChange(false)}>
+            <Link to={`/trips/${target.trip.id}/catches/new`} className="text-sm text-muted-foreground underline" onClick={() => close(false)}>
               Full form
             </Link>
           ) : <span />}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { Heart, Lock, Globe, Plus, RefreshCw, EyeOff, Fish, CloudUpload } from 'lucide-react';
+import { Heart, Lock, Globe, Plus, RefreshCw, EyeOff, Fish, CloudUpload, Play } from 'lucide-react';
 import { toast } from 'sonner';
 import { isOfflineError } from '../../api/client';
 import { tripsApi } from '../../api/trips';
@@ -24,13 +24,20 @@ import { TripOwnerMenu } from '../../components/TripOwnerMenu';
 import { useConfirm } from '../../hooks/useConfirm';
 import { to12h } from '../../utils/time';
 import { QuickCatchDialog } from '../../components/QuickCatchDialog';
+import { MediaViewer } from '../../components/MediaViewer';
+import { TripStatusBadge } from '../../components/TripStatusBadge';
+import { setPageTitle } from '../../hooks/usePageTitle';
+import { tripViewerItems } from '../../utils/viewer';
 import { pendingCatchesFor, useOutbox } from '../../offline/outbox';
+import { catchDraftTarget, useCatchDrafts } from '../../offline/drafts';
 
-function CatchBlock({ item, isOwner, tripLocationId, onDeleted }: {
+function CatchBlock({ item, isOwner, tripLocationId, onDeleted, onOpenMedia }: {
   item: Catch;
   isOwner: boolean;
   tripLocationId: string | null;
   onDeleted: (id: string) => void;
+  /** Opens the full-screen viewer at this photo/video. */
+  onOpenMedia: (mediaId: string) => void;
 }) {
   const media = [...item.media].sort((a, b) => a.orderIndex - b.orderIndex);
   const ask = useConfirm();
@@ -49,13 +56,26 @@ function CatchBlock({ item, isOwner, tripLocationId, onDeleted }: {
     <div id={`catch-${item.id}`} className="rounded-lg border border-border p-3">
       {media.length > 0 && (
         <div className="mb-3 flex gap-2 overflow-x-auto">
-          {media.map((m) =>
-            m.mediaType === 'Video' ? (
-              <video key={m.id} src={resolveMediaUrl(m.mediaUrl)} controls className="h-45" />
-            ) : (
-              <img key={m.id} src={resolveMediaUrl(m.mediaUrl)} alt={item.speciesName ?? 'Catch photo'} className="h-45" />
-            )
-          )}
+          {media.map((m, i) => (
+            <button
+              key={m.id}
+              type="button"
+              onClick={() => onOpenMedia(m.id)}
+              aria-label={`Open ${m.mediaType === 'Video' ? 'video' : 'photo'} ${i + 1} of ${media.length} full screen`}
+              className="relative shrink-0 cursor-zoom-in overflow-hidden rounded-md focus-visible:outline-2 focus-visible:outline-ring"
+            >
+              {m.mediaType === 'Video' ? (
+                <>
+                  <video src={resolveMediaUrl(m.mediaUrl)} muted preload="metadata" className="h-45 pointer-events-none" />
+                  <span className="absolute inset-0 flex items-center justify-center bg-black/25">
+                    <Play className="size-10 fill-white text-white drop-shadow" />
+                  </span>
+                </>
+              ) : (
+                <img src={resolveMediaUrl(m.mediaUrl)} alt={item.speciesName ?? 'Catch photo'} className="h-45" />
+              )}
+            </button>
+          ))}
         </div>
       )}
 
@@ -120,8 +140,14 @@ function TripView({ trip, onChange, openPublish }: { trip: Trip; onChange: (t: T
   const { liked, likeCount, busy, toggleLike } = useTripLike(trip);
   const isOwner = user?.id === trip.userId;
   const times = timeRange(trip);
+  const heading = tripHeading(trip);
+  useEffect(() => { setPageTitle(heading); }, [heading]);
   const stillFishing = isOwner && isStillFishing(trip);
   const [quickOpen, setQuickOpen] = useState(false);
+  const hasCatchDraft = useCatchDrafts(user?.id);
+  const catchLabel = hasCatchDraft(catchDraftTarget.saved(trip.id)) ? 'Continue catch' : 'Quick catch';
+  const viewerItems = tripViewerItems(trip);
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const { entries } = useOutbox();
   const waiting = isOwner ? pendingCatchesFor(entries, trip.id) : [];
 
@@ -210,7 +236,10 @@ function TripView({ trip, onChange, openPublish }: { trip: Trip; onChange: (t: T
             </div>
           )}
 
-          <h1 className="mt-3 font-heading text-2xl">{tripHeading(trip)}</h1>
+          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
+            <h1 className="m-0 font-heading text-2xl">{tripHeading(trip)}</h1>
+            <TripStatusBadge trip={trip} isOwner={isOwner} editHref={`/trips/${trip.id}/edit`} />
+          </div>
           <CastDivider />
 
           <p className="text-muted-foreground">
@@ -222,7 +251,7 @@ function TripView({ trip, onChange, openPublish }: { trip: Trip; onChange: (t: T
           {stillFishing && (
             <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-[color:var(--color-brass)]/40 bg-muted/40 p-3">
               <span className="text-sm">🎣 Still fishing? Log each catch as it lands, even with no signal.</span>
-              <Button size="sm" className="ml-auto" onClick={() => setQuickOpen(true)}><Fish className="size-4" /> Quick catch</Button>
+              <Button size="sm" className="ml-auto" onClick={() => setQuickOpen(true)}><Fish className="size-4" /> {catchLabel}</Button>
             </div>
           )}
           {isOwner && !trip.endTime && (
@@ -278,6 +307,7 @@ function TripView({ trip, onChange, openPublish }: { trip: Trip; onChange: (t: T
                 isOwner={isOwner}
                 tripLocationId={trip.locationId}
                 onDeleted={handleCatchDeleted}
+                onOpenMedia={(mediaId) => setViewerIndex(Math.max(0, viewerItems.findIndex((v) => v.id === mediaId)))}
               />
             ))}
           </div>
@@ -285,7 +315,7 @@ function TripView({ trip, onChange, openPublish }: { trip: Trip; onChange: (t: T
           {isOwner && (
             <div className="mt-3 flex flex-wrap gap-2">
               {stillFishing && (
-                <Button onClick={() => setQuickOpen(true)}><Fish className="size-4" /> Quick catch</Button>
+                <Button onClick={() => setQuickOpen(true)}><Fish className="size-4" /> {catchLabel}</Button>
               )}
               <Link to={`/trips/${trip.id}/catches/new`}>
                 <Button variant="outline"><Plus className="size-4" /> {stillFishing ? 'Full catch form' : 'Add a catch'}</Button>
@@ -297,10 +327,11 @@ function TripView({ trip, onChange, openPublish }: { trip: Trip; onChange: (t: T
             <Button
               variant="ghost"
               onClick={toggleLike}
-              disabled={busy}
+              disabled={busy} aria-pressed={liked}
+              aria-label={`${liked ? 'Unlike' : 'Like'} this trip, ${likeCount} ${likeCount === 1 ? 'like' : 'likes'}`}
               className="h-auto gap-1.5 p-0 text-sm normal-case tracking-normal text-brass hover:bg-transparent"
             >
-              <Heart className={liked ? 'fill-rust text-rust' : 'text-brass'} />
+              <Heart aria-hidden="true" className={liked ? 'fill-rust text-rust' : 'text-brass'} />
               {likeCount} likes
             </Button>
 
@@ -325,6 +356,7 @@ function TripView({ trip, onChange, openPublish }: { trip: Trip; onChange: (t: T
         </CardContent>
       </Card>
 
+      <MediaViewer items={viewerItems} index={viewerIndex} onIndexChange={setViewerIndex} onClose={() => setViewerIndex(null)} />
       {stillFishing && (
         <QuickCatchDialog
           target={{ kind: 'saved', trip }}

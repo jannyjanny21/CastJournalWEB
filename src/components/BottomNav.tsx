@@ -6,6 +6,8 @@ import { tripsApi } from '../api/trips';
 import { isStillFishing, tripHeading, formatTripDates } from '../utils/trip';
 import { QuickCatchDialog, type QuickCatchTarget } from './QuickCatchDialog';
 import { useOutbox } from '../offline/outbox';
+import { catchDraftTarget, useCatchDrafts } from '../offline/drafts';
+import { useAuth } from '../context/useAuth';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 
@@ -35,6 +37,9 @@ export function BottomNav() {
   const [catchFor, setCatchFor] = useState<QuickCatchTarget | null>(null);
   // Trips logged offline that haven't uploaded yet can take catches too; they upload together.
   const { entries } = useOutbox();
+  const { user } = useAuth();
+  const hasCatchDraft = useCatchDrafts(user?.id);
+  const verb = (target: string) => (hasCatchDraft(target) ? 'Continue your catch for' : 'Add a catch to');
   const queued = entries.filter((e) => e.kind !== 'catch' && !e.serverTripId && e.status !== 'failed' && isStillFishing(e.trip));
 
   const openPlus = async () => {
@@ -57,7 +62,7 @@ export function BottomNav() {
   return (
     <>
       <nav
-        aria-label="Main"
+        aria-label="Quick links"
         className="fixed inset-x-0 bottom-0 z-30 flex items-stretch border-t border-border bg-card/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-2px_8px_rgb(0_0_0/0.06)] backdrop-blur md:hidden"
       >
         {LEFT.map(({ to, label, icon: Icon }) => (
@@ -98,7 +103,7 @@ export function BottomNav() {
               >
                 <Fish className="size-5 shrink-0 text-[color:var(--color-brass)]" />
                 <span className="min-w-0">
-                  <strong className="block truncate text-sm">Add a catch to {tripHeading(t)}</strong>
+                  <strong className="block truncate text-sm">{verb(catchDraftTarget.saved(t.id))} {tripHeading(t)}</strong>
                   <span className="text-xs text-muted-foreground">Still fishing · {formatTripDates(t)}</span>
                 </span>
               </button>
@@ -112,7 +117,7 @@ export function BottomNav() {
               >
                 <Fish className="size-5 shrink-0 text-[color:var(--color-brass)]" />
                 <span className="min-w-0">
-                  <strong className="block truncate text-sm">Add a catch to {e.trip.title || 'your trip'}</strong>
+                  <strong className="block truncate text-sm">{verb(catchDraftTarget.queued(e.id))} {e.trip.title || 'your trip'}</strong>
                   <span className="flex items-center gap-1 text-xs text-muted-foreground">
                     <CloudUpload className="size-3.5" /> On this device, not uploaded yet · {formatTripDates(e.trip)}
                   </span>

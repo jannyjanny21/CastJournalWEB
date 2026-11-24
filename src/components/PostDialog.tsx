@@ -61,10 +61,11 @@ export function PostDialog({
           variant="ghost"
           size="sm"
           onClick={onToggleLike}
-          disabled={busy}
+          disabled={busy} aria-pressed={liked}
+              aria-label={`${liked ? 'Unlike' : 'Like'} this trip, ${likeCount} ${likeCount === 1 ? 'like' : 'likes'}`}
           className={`w-fit px-2 -ml-2 ${liked ? 'text-destructive' : 'text-muted-foreground'} hover:text-destructive`}
         >
-          <Heart className="size-4" fill={liked ? 'currentColor' : 'none'} />
+          <Heart aria-hidden="true" className="size-4" fill={liked ? 'currentColor' : 'none'} />
           {likeCount}
         </Button>
         {item.isPublic && user?.id !== item.userId && (

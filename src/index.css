@@ -172,8 +172,19 @@ label {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  * { transition: none !important; }
+  *, *::before, *::after {
+    transition: none !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
   .animated-gradient-bg { animation: none !important; }
+}
+
+/* A clear keyboard focus ring everywhere, including custom buttons and links (WCAG 2.4.7). */
+:where(a, button, [role="tab"], [tabindex]:not([tabindex="-1"])):focus-visible {
+  outline: 2px solid var(--color-ring, #2563eb);
+  outline-offset: 2px;
 }
 
 .dark {
@@ -311,4 +322,18 @@ input::-ms-clear {
   font-weight: 600;
   color: #1e3a8a;
   border-color: #2563eb;
+}
+
+/* Grouped map pins (MyMap clustering). */
+.leaflet-marker-icon.cj-cluster {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: color-mix(in oklab, var(--color-primary) 85%, transparent);
+  border: 3px solid color-mix(in oklab, var(--color-brass) 70%, white);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.35);
+  color: var(--color-primary-foreground, #fff);
+  font-weight: 700;
+  font-size: 13px;
 }

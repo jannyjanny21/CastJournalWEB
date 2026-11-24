@@ -10,6 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Leaderboards } from './Leaderboards';
 import { WeatherCard } from './WeatherCard';
+import { GettingStarted } from './GettingStarted';
 
 function StatTile({ value, label, sub }: { value: string | number; label: string; sub?: string }) {
   return (
@@ -75,6 +76,7 @@ export function Dashboard() {
 
       {summary && (
         <>
+          {user && <GettingStarted userId={user.id} summary={summary} />}
           <div className="mb-4 grid grid-cols-2 gap-4 md:grid-cols-4">
             <StatTile value={summary.tripCount} label="Trips" sub={`${summary.publishedTripCount} published`} />
             <StatTile value={summary.catchCount} label="Catches" sub={`${summary.catchesThisMonth} this month`} />
@@ -89,11 +91,6 @@ export function Dashboard() {
             <BestTile title="Heaviest catch" best={summary.heaviestCatch} unit="kg" />
             <BestTile title="Longest catch" best={summary.longestCatch} unit="cm" />
           </div>
-          {summary.tripCount === 0 && (
-            <p className="mb-6 text-sm text-muted-foreground">
-              Log your first trip to start filling in your stats. <Link to="/trips/new" className="underline">Log a trip</Link>
-            </p>
-          )}
         </>
       )}
 

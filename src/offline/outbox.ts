@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { idb, STORES } from './db';
+import { catchDrafts, catchDraftTarget } from './drafts';
 import { isOfflineError } from '../api/client';
 import { tripsApi } from '../api/trips';
 import { catchesApi } from '../api/catches';
@@ -314,6 +315,8 @@ async function upload(entry: OutboxEntry): Promise<SyncResult> {
 
     await idb.delete(STORES.outbox, entry.id);
     uploadedTripIds.set(entry.id, entry.serverTripId!);
+    if (entry.kind !== 'catch')
+      await catchDrafts.move(entry.userId, catchDraftTarget.queued(entry.id), catchDraftTarget.saved(entry.serverTripId!));
     return { state: 'done', tripId: entry.serverTripId!, entry };
   } catch (err) {
     if (err !== OFFLINE) throw err;

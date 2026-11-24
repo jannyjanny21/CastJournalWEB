@@ -6,6 +6,9 @@ import { formatTripDates, isStillFishing } from '../utils/trip';
 import { useState } from 'react';
 import { Fish } from 'lucide-react';
 import { QuickCatchDialog } from './QuickCatchDialog';
+import { TripStatusBadge } from './TripStatusBadge';
+import { catchDraftTarget, useCatchDrafts } from '../offline/drafts';
+import { useAuth } from '../context/useAuth';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useConfirm } from '../hooks/useConfirm';
@@ -31,6 +34,8 @@ export function PendingTrips() {
   const { entries, syncing } = useOutbox();
   const { online } = useOfflineStatus();
   const [catchFor, setCatchFor] = useState<OutboxEntry | null>(null);
+  const { user } = useAuth();
+  const hasCatchDraft = useCatchDrafts(user?.id);
   if (entries.length === 0) return null;
 
   return (
@@ -51,9 +56,12 @@ export function PendingTrips() {
           <CardContent className="space-y-1.5">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0">
-                <strong className="block truncate">
-                  {e.kind === 'catch' ? `Catch for ${e.trip.title || 'your trip'}` : e.trip.title || 'Fishing trip'}
-                </strong>
+                <span className="flex min-w-0 items-center gap-2">
+                  <strong className="truncate">
+                    {e.kind === 'catch' ? `Catch for ${e.trip.title || 'your trip'}` : e.trip.title || 'Fishing trip'}
+                  </strong>
+                  {e.kind !== 'catch' && <TripStatusBadge trip={e.trip} isOwner className="shrink-0" />}
+                </span>
                 <div className="font-mono text-sm text-muted-foreground">{describe(e)}</div>
               </div>
               <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
@@ -75,7 +83,10 @@ export function PendingTrips() {
 
             <div className="flex flex-wrap gap-2">
               {e.kind !== 'catch' && !e.serverTripId && e.status !== 'failed' && isStillFishing(e.trip) && (
-                <Button size="sm" onClick={() => setCatchFor(e)}><Fish className="size-4" /> Quick catch</Button>
+                <Button size="sm" onClick={() => setCatchFor(e)}>
+                  <Fish className="size-4" />
+                  {hasCatchDraft(catchDraftTarget.queued(e.id)) ? <>Continue catch <span className="size-2 rounded-full bg-[color:var(--color-brass)]" aria-hidden="true" /></> : 'Quick catch'}
+                </Button>
               )}
               {e.status === 'attention' && e.serverTripId && (
                 <Link to={`/trips/${e.serverTripId}`}><Button size="sm" variant="outline">Open trip</Button></Link>

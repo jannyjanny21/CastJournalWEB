@@ -98,6 +98,8 @@ export function Sidebar() {
         )}
       >
         <button
+          type="button"
+          aria-expanded={mobileOpen}
           onClick={() => setMobileOpen(true)}
           className="flex size-9 items-center justify-center rounded-md text-foreground hover:bg-muted"
           aria-label="Open menu"
@@ -137,10 +139,10 @@ export function Sidebar() {
           {expanded && 'CastJournal'}
         </Link>
 
-        <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto">
+        <nav aria-label="Main" className="flex flex-1 flex-col gap-0.5 overflow-y-auto">
           {expanded && <p className="px-2 pb-1 text-xs tracking-widest text-muted-foreground uppercase">Main</p>}
           {mainLinks.map(({ to, label, icon: Icon }) => (
-            <NavLink key={to} to={to} className={linkClass} title={!expanded ? label : undefined} onClick={closeMobile}>
+            <NavLink key={to} to={to} className={linkClass} title={!expanded ? label : undefined} aria-label={!expanded ? label : undefined} onClick={closeMobile}>
               <Icon className="size-4.5 shrink-0" />
               {expanded && label}
             </NavLink>
@@ -149,7 +151,7 @@ export function Sidebar() {
           {isAdmin && (
             <>
               {expanded && <p className="px-2 pt-4 pb-1 text-xs tracking-widest text-muted-foreground uppercase">Admin</p>}
-              <NavLink to="/admin" className={linkClass} title={!expanded ? 'Admin' : undefined} onClick={closeMobile}>
+              <NavLink to="/admin" className={linkClass} title={!expanded ? 'Admin' : undefined} aria-label={!expanded ? 'Admin' : undefined} onClick={closeMobile}>
                 <ShieldCheck className="size-4.5 shrink-0" />
                 {expanded && 'Admin'}
               </NavLink>
@@ -162,6 +164,7 @@ export function Sidebar() {
             type="button"
             onClick={() => { void install(); }}
             title={!expanded ? 'Install app' : undefined}
+            aria-label={!expanded ? 'Install app' : undefined}
             className={cn(
               'mb-1 flex items-center gap-2.5 rounded-md px-2 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground',
               !expanded && 'justify-center px-0'
@@ -176,6 +179,7 @@ export function Sidebar() {
           to="/privacy"
           onClick={closeMobile}
           title={!expanded ? 'Privacy notice' : undefined}
+          aria-label={!expanded ? 'Privacy notice' : undefined}
           className={cn(
             'mb-1 flex items-center gap-2.5 rounded-md px-2 py-2 text-sm text-muted-foreground no-underline transition-colors hover:bg-muted hover:text-foreground',
             !expanded && 'justify-center px-0'
