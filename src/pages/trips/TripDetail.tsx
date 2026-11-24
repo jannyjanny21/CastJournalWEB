@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { Heart, Lock, Globe, Plus, RefreshCw, EyeOff } from 'lucide-react';
+import { Heart, Lock, Globe, Plus, RefreshCw, EyeOff, Fish, CloudUpload } from 'lucide-react';
 import { toast } from 'sonner';
 import { isOfflineError } from '../../api/client';
 import { tripsApi } from '../../api/trips';
@@ -11,7 +11,7 @@ import { useAuth } from '../../context/useAuth';
 import { useTripLike } from '../../hooks/useTripLike';
 import { CastDivider } from '../../components/CastDivider';
 import { resolveMediaUrl } from '../../utils/mediaUrl';
-import { formatTripDates, timeRange, tripHeading } from '../../utils/trip';
+import { formatTripDates, isStillFishing, timeRange, tripHeading } from '../../utils/trip';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CommentSection } from '../../components/CommentSection';
@@ -23,6 +23,8 @@ import { hasPosition } from '../../components/map/leaflet';
 import { TripOwnerMenu } from '../../components/TripOwnerMenu';
 import { useConfirm } from '../../hooks/useConfirm';
 import { to12h } from '../../utils/time';
+import { QuickCatchDialog } from '../../components/QuickCatchDialog';
+import { pendingCatchesFor, useOutbox } from '../../offline/outbox';
 
 function CatchBlock({ item, isOwner, tripLocationId, onDeleted }: {
   item: Catch;
@@ -118,6 +120,10 @@ function TripView({ trip, onChange, openPublish }: { trip: Trip; onChange: (t: T
   const { liked, likeCount, busy, toggleLike } = useTripLike(trip);
   const isOwner = user?.id === trip.userId;
   const times = timeRange(trip);
+  const stillFishing = isOwner && isStillFishing(trip);
+  const [quickOpen, setQuickOpen] = useState(false);
+  const { entries } = useOutbox();
+  const waiting = isOwner ? pendingCatchesFor(entries, trip.id) : [];
 
   // "Publish after saving" from the trip form opens the preview once (FR-43, FR-45).
   const [publishOpen, setPublishOpen] = useState(() => openPublish && isOwner && !trip.isPublic);
@@ -213,6 +219,12 @@ function TripView({ trip, onChange, openPublish }: { trip: Trip; onChange: (t: T
             {' '}&nbsp;·&nbsp; 📅 {formatTripDates(trip)}
             {times && <> &nbsp;·&nbsp; 🕒 {times}</>}
           </p>
+          {stillFishing && (
+            <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-[color:var(--color-brass)]/40 bg-muted/40 p-3">
+              <span className="text-sm">🎣 Still fishing? Log each catch as it lands, even with no signal.</span>
+              <Button size="sm" className="ml-auto" onClick={() => setQuickOpen(true)}><Fish className="size-4" /> Quick catch</Button>
+            </div>
+          )}
           {isOwner && !trip.endTime && (
             <p className="text-sm">
               No end time yet.{' '}
@@ -248,7 +260,15 @@ function TripView({ trip, onChange, openPublish }: { trip: Trip; onChange: (t: T
             Catches {trip.catches.length > 0 && `(${trip.catches.length})`}
           </h2>
           <div className="mt-2 flex flex-col gap-3">
-            {trip.catches.length === 0 && (
+            {waiting.map((e) => (
+              <div key={e.id} className="flex items-center gap-2 rounded-lg border border-dashed border-border p-3 text-sm text-muted-foreground">
+                <CloudUpload className="size-4 shrink-0" />
+                <span>
+                  A catch saved on this device {e.status === 'attention' || e.status === 'failed' ? 'needs attention — see My Trips.' : 'is waiting to upload.'}
+                </span>
+              </div>
+            ))}
+            {trip.catches.length === 0 && waiting.length === 0 && (
               <p className="text-sm text-muted-foreground">No catches logged on this trip.</p>
             )}
             {trip.catches.map((c) => (
@@ -263,9 +283,14 @@ function TripView({ trip, onChange, openPublish }: { trip: Trip; onChange: (t: T
           </div>
 
           {isOwner && (
-            <Link to={`/trips/${trip.id}/catches/new`} className="mt-3 inline-block">
-              <Button variant="outline"><Plus className="size-4" /> Add a catch</Button>
-            </Link>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {stillFishing && (
+                <Button onClick={() => setQuickOpen(true)}><Fish className="size-4" /> Quick catch</Button>
+              )}
+              <Link to={`/trips/${trip.id}/catches/new`}>
+                <Button variant="outline"><Plus className="size-4" /> {stillFishing ? 'Full catch form' : 'Add a catch'}</Button>
+              </Link>
+            </div>
           )}
 
           <div className="mt-4 flex items-center gap-4">
@@ -300,6 +325,14 @@ function TripView({ trip, onChange, openPublish }: { trip: Trip; onChange: (t: T
         </CardContent>
       </Card>
 
+      {stillFishing && (
+        <QuickCatchDialog
+          target={{ kind: 'saved', trip }}
+          open={quickOpen}
+          onOpenChange={setQuickOpen}
+          onSaved={() => { void tripsApi.getById(trip.id).then(onChange).catch(() => {}); }}
+        />
+      )}
       {isOwner && (
         <PublishDialog
           tripId={trip.id}
@@ -321,6 +354,8 @@ export function TripDetail() {
   // Result tagged with the id it belongs to, so switching trips shows "Loading" without
   // resetting state inside the effect.
   const [loaded, setLoaded] = useState<{ id: string; trip?: Trip; error?: string } | null>(null);
+  // A quick catch queued offline landed: show it.
+  const { uploadedVersion } = useOutbox();
 
   useEffect(() => {
     const warning = (location.state as { warning?: string } | null)?.warning;
@@ -337,7 +372,7 @@ export function TripDetail() {
         setLoaded({ id, error: err?.status === 401 ? 'Please log in to view this trip.' : 'Trip not found.' });
       });
     return () => { cancelled = true; };
-  }, [id]);
+  }, [id, uploadedVersion]);
 
   const current = loaded && loaded.id === id ? loaded : null;
   const trip = current?.trip ?? null;

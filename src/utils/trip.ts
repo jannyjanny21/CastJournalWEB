@@ -140,3 +140,29 @@ export function nowTimeInput(): string {
   const d = new Date();
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
+
+function localToday(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** Dates and times of a trip, saved or still waiting on the device. */
+export type TripTiming = { tripDate: string; endDate?: string | null; startTime: string | null; endTime: string | null };
+
+/** The days a catch can be dated: the trip's days (so far, while still fishing). Matches the API. */
+export function catchDateRange(trip: TripTiming): { min: string; max: string } {
+  if (!trip.endTime) {
+    const today = localToday();
+    const cap = addDaysToDate(trip.tripDate, MAX_TRIP_DAYS - 1);
+    const max = today < cap ? today : cap;
+    return { min: trip.tripDate, max: max < trip.tripDate ? trip.tripDate : max };
+  }
+  return { min: trip.tripDate, max: lastTripDay(trip.tripDate, trip.endDate ?? null, toTimeInput(trip.startTime), toTimeInput(trip.endTime)) };
+}
+
+/** No end time yet and started within the last week: the angler is (probably) still out there. */
+export function isStillFishing(trip: TripTiming): boolean {
+  if (trip.endTime) return false;
+  const today = localToday();
+  return trip.tripDate <= today && addDaysToDate(trip.tripDate, MAX_TRIP_DAYS - 1) >= today;
+}

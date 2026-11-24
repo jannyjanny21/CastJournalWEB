@@ -42,6 +42,12 @@ export function OutboxSync() {
   useEffect(
     () =>
       onTripUploaded((entry, tripId) => {
+        if (entry.kind === 'catch') {
+          toast.success(`Catch added to ${entry.trip.title || 'your trip'}.`, {
+            action: { label: 'Open', onClick: () => navigate(`/trips/${tripId}`) },
+          });
+          return;
+        }
         const name = entry.trip.title || 'Your trip';
         toast.success(`${name} uploaded.`, {
           description: entry.publishAfterSave ? 'Open it to review and publish.' : undefined,

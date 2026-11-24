@@ -13,6 +13,10 @@ import type { UpdateTripPayload } from '../types/trip';
  * Every new trip goes through here, online or not. Each trip, catch and file carries an ID made
  * on the device, and the API returns the existing record for an ID it has already seen, so an
  * upload interrupted halfway can simply be retried without creating duplicates.
+ *
+ * A quick catch for a trip that's already saved (still fishing) is queued the same way, as an
+ * entry with kind "catch": serverTripId is known from the start, so the upload skips straight to
+ * the catch and its files.
  */
 
 export interface OutboxMedia {
@@ -36,7 +40,9 @@ export interface OutboxCatch {
 export type OutboxStatus = 'pending' | 'syncing' | 'failed' | 'attention';
 
 export interface OutboxEntry {
-  id: string; // also the trip's clientId
+  id: string; // also the trip's clientId (for kind "trip")
+  /** "trip" (default): a new trip with its catches · "catch": catches for an existing trip (serverTripId). */
+  kind?: 'trip' | 'catch';
   userId: string;
   createdAt: number;
   trip: UpdateTripPayload;
@@ -65,6 +71,10 @@ export function newId(): string {
 }
 
 // ---- store for the UI -------------------------------------------------------------------
+
+// Queued trips that finished uploading in this session: entry id → server trip id. Lets a quick
+// catch aimed at a trip that uploaded a moment ago still find it.
+const uploadedTripIds = new Map<string, string>();
 
 type Snapshot = { entries: OutboxEntry[]; syncing: boolean; uploadedVersion: number };
 let snapshot: Snapshot = { entries: [], syncing: false, uploadedVersion: 0 };
@@ -96,6 +106,11 @@ export function useOutbox(): Snapshot {
     () => snapshot,
     () => snapshot,
   );
+}
+
+/** Quick catches still waiting for this trip (shown on the trip page). */
+export function pendingCatchesFor(entries: OutboxEntry[], tripId: string): OutboxEntry[] {
+  return entries.filter((e) => e.kind === 'catch' && e.serverTripId === tripId);
 }
 
 /** Called after a queued trip finishes uploading in the background. */
@@ -137,6 +152,44 @@ export const outbox = {
     await refresh();
   },
 
+  /**
+   * Quick catch for a trip that's still on this device (logged offline, not uploaded yet): the
+   * catch joins that trip and uploads with it. Runs under the upload lock, so it never collides
+   * with an upload in progress. If the trip finished uploading meanwhile, the catch is queued for
+   * the saved trip instead. 'missing': the trip is gone from the queue and its server ID unknown.
+   */
+  async addCatchToQueued(target: OutboxEntry, item: OutboxCatch): Promise<'queued' | 'missing'> {
+    const outcome = await exclusive(async () => {
+      const entry = await idb.get<OutboxEntry>(STORES.outbox, target.id);
+      if (entry) {
+        entry.catches.push(item);
+        // Trip saved but a part failed: upload again, which also retries the failed parts.
+        if (entry.status === 'attention') {
+          entry.status = 'pending';
+          entry.error = undefined;
+        }
+        await save(entry);
+        return 'queued' as const;
+      }
+      const serverTripId = uploadedTripIds.get(target.id);
+      if (!serverTripId) return 'missing' as const;
+      await save({
+        ...target,
+        id: newId(),
+        kind: 'catch',
+        createdAt: Date.now(),
+        serverTripId,
+        publishAfterSave: false,
+        status: 'pending',
+        error: undefined,
+        catches: [item],
+      });
+      return 'queued' as const;
+    });
+    await refresh();
+    return outcome;
+  },
+
   /** Try again: a failed or partly-uploaded trip goes back to waiting. */
   async retry(id: string) {
     const entry = await idb.get<OutboxEntry>(STORES.outbox, id);
@@ -158,9 +211,15 @@ export const outbox = {
 const OFFLINE = Symbol('offline');
 let lock: Promise<unknown> = Promise.resolve();
 
-/** One upload at a time, in order, so catches and files always follow their trip. */
+/**
+ * One upload at a time, in order, so catches and files always follow their trip. The browser's
+ * Web Locks make that hold across every open window of the app on this device (a browser tab and
+ * the installed app, or two tabs), so they never send the same queued item at the same moment.
+ */
 function exclusive<T>(fn: () => Promise<T>): Promise<T> {
-  const run = lock.then(fn, fn);
+  const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined;
+  const guarded = (): Promise<T> => (locks?.request ? locks.request('castjournal-outbox', fn) : fn());
+  const run = lock.then(guarded, guarded);
   lock = run.catch(() => undefined);
   return run;
 }
@@ -254,6 +313,7 @@ async function upload(entry: OutboxEntry): Promise<SyncResult> {
     }
 
     await idb.delete(STORES.outbox, entry.id);
+    uploadedTripIds.set(entry.id, entry.serverTripId!);
     return { state: 'done', tripId: entry.serverTripId!, entry };
   } catch (err) {
     if (err !== OFFLINE) throw err;

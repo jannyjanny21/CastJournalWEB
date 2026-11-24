@@ -19,7 +19,7 @@ createRoot(document.getElementById('root')!).render(
         <NotificationsProvider>
           <ConfirmProvider>
             <App />
-            <Toaster position="bottom-right" richColors closeButton />
+            <Toaster position="bottom-right" richColors closeButton mobileOffset={{ bottom: 88 }} />
             <ReloadPrompt />
             <OutboxSync />
           </ConfirmProvider>

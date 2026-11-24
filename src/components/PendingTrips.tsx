@@ -2,12 +2,19 @@ import { Link } from 'react-router-dom';
 import { CloudUpload, AlertTriangle, Loader2 } from 'lucide-react';
 import { outbox, syncAll, useOutbox, type OutboxEntry } from '../offline/outbox';
 import { useOfflineStatus } from '../offline/status';
-import { formatTripDates } from '../utils/trip';
+import { formatTripDates, isStillFishing } from '../utils/trip';
+import { useState } from 'react';
+import { Fish } from 'lucide-react';
+import { QuickCatchDialog } from './QuickCatchDialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useConfirm } from '../hooks/useConfirm';
 
 function describe(e: OutboxEntry): string {
+  if (e.kind === 'catch') {
+    const files = e.catches.reduce((n, c) => n + c.media.length, 0);
+    return ['Quick catch', files > 0 ? `${files} ${files === 1 ? 'photo/video' : 'photos/videos'}` : null].filter(Boolean).join(' · ');
+  }
   const catches = e.catches.length;
   const files = e.catches.reduce((n, c) => n + c.media.length, 0);
   return [
@@ -23,6 +30,7 @@ export function PendingTrips() {
   const ask = useConfirm();
   const { entries, syncing } = useOutbox();
   const { online } = useOfflineStatus();
+  const [catchFor, setCatchFor] = useState<OutboxEntry | null>(null);
   if (entries.length === 0) return null;
 
   return (
@@ -43,7 +51,9 @@ export function PendingTrips() {
           <CardContent className="space-y-1.5">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0">
-                <strong className="block truncate">{e.trip.title || 'Fishing trip'}</strong>
+                <strong className="block truncate">
+                  {e.kind === 'catch' ? `Catch for ${e.trip.title || 'your trip'}` : e.trip.title || 'Fishing trip'}
+                </strong>
                 <div className="font-mono text-sm text-muted-foreground">{describe(e)}</div>
               </div>
               <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
@@ -64,6 +74,9 @@ export function PendingTrips() {
             )}
 
             <div className="flex flex-wrap gap-2">
+              {e.kind !== 'catch' && !e.serverTripId && e.status !== 'failed' && isStillFishing(e.trip) && (
+                <Button size="sm" onClick={() => setCatchFor(e)}><Fish className="size-4" /> Quick catch</Button>
+              )}
               {e.status === 'attention' && e.serverTripId && (
                 <Link to={`/trips/${e.serverTripId}`}><Button size="sm" variant="outline">Open trip</Button></Link>
               )}
@@ -78,9 +91,10 @@ export function PendingTrips() {
                 className="text-muted-foreground hover:text-destructive"
                 disabled={e.status === 'syncing'}
                 onClick={async () => {
+                  const what = e.kind === 'catch' ? 'catch' : 'trip';
                   const ok = await ask(e.status === 'attention'
-                    ? { title: 'Stop trying?', description: 'The trip is already saved; only the parts that failed will be dropped.', confirmLabel: 'Dismiss' }
-                    : { title: 'Discard this trip?', description: 'It hasn’t been uploaded, so it will be lost.', confirmLabel: 'Discard', destructive: true });
+                    ? { title: 'Stop trying?', description: `The ${what} is saved as far as it got; only the parts that failed will be dropped.`, confirmLabel: 'Dismiss' }
+                    : { title: `Discard this ${what}?`, description: 'It hasn’t been uploaded, so it will be lost.', confirmLabel: 'Discard', destructive: true });
                   if (ok) void outbox.remove(e.id);
                 }}
               >
@@ -90,6 +104,10 @@ export function PendingTrips() {
           </CardContent>
         </Card>
       ))}
+
+      {catchFor && (
+        <QuickCatchDialog target={{ kind: 'queued', entry: catchFor }} open onOpenChange={(o) => { if (!o) setCatchFor(null); }} />
+      )}
     </section>
   );
 }

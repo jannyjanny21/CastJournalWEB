@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { OfflineBanner } from './OfflineBanner';
+import { BottomNav } from './BottomNav';
 
 export function Layout() {
   return (
@@ -15,10 +16,12 @@ export function Layout() {
           <main> (negative margin + sticky), which would otherwise slide over the banner. */}
       <div className="flex min-w-0 flex-1 flex-col">
         <OfflineBanner />
-        <main className="mx-auto w-full min-w-0 max-w-6xl px-6 py-8 xl:px-10">
+        {/* pb-28 on phones keeps the last content clear of the bottom bar. */}
+        <main className="mx-auto w-full min-w-0 max-w-6xl px-6 pt-8 pb-28 md:pb-8 xl:px-10">
           <Outlet />
         </main>
       </div>
+      <BottomNav />
     </div>
   );
 }
