@@ -33,6 +33,7 @@ import { ResetPassword } from './pages/auth/ResetPassword';
 import { PrivacyPolicy } from './pages/PrivacyPolicy';
 import { Dashboard } from './pages/dashboard/Dashboard';
 import { NotFound } from './pages/NotFound';
+import { RecentlyDeleted } from './pages/trips/RecentlyDeleted';
 
 
 
@@ -59,6 +60,7 @@ function App() {
         <Route element={<Layout />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/trips" element={<MyTrips />} />
+          <Route path="/trips/deleted" element={<RecentlyDeleted />} />
           <Route path="/map" element={<MyMap />} />
           <Route path="/trips/new" element={<TripForm />} />
           <Route path="/trips/:id" element={<TripDetail />} />

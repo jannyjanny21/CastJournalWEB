@@ -130,6 +130,8 @@ export function TripForm() {
 
   const [species, setSpecies] = useState<Species[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
+  // Editing a trip whose spot was removed from the list since (B-12): keep it selectable.
+  const [removedSpot, setRemovedSpot] = useState<{ id: string; name: string } | null>(null);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   // Photos per catch row, keyed by the row's useFieldArray id.
   const [photos, setPhotos] = useState<Record<string, File[]>>({});
@@ -187,6 +189,7 @@ export function TripForm() {
 
     if (isEdit) {
       tripsApi.getById(id!).then((t) => {
+        if (t.locationDeleted && t.locationId) setRemovedSpot({ id: t.locationId, name: t.locationName ?? 'Removed spot' });
         form.reset({
           title: t.title ?? '',
           tripDate: t.tripDate,
@@ -437,6 +440,7 @@ export function TripForm() {
                     <Select
                       items={[
                         ...locations.map((l) => ({ value: l.id, label: l.name })),
+                        ...(removedSpot ? [{ value: removedSpot.id, label: `${removedSpot.name} (removed)` }] : []),
                         { value: ADD_NEW_LOCATION, label: '+ Add new location' },
                       ]}
                       value={field.value || null}
@@ -457,6 +461,9 @@ export function TripForm() {
                         {locations.map((l) => (
                           <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
                         ))}
+                        {removedSpot && (
+                          <SelectItem value={removedSpot.id}>{removedSpot.name} (removed)</SelectItem>
+                        )}
                         <SelectItem value={ADD_NEW_LOCATION}>+ Add new location</SelectItem>
                       </SelectContent>
                     </Select>

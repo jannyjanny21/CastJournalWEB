@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Heart, Lock, Globe, Plus, RefreshCw, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
+import { isOfflineError } from '../../api/client';
 import { tripsApi } from '../../api/trips';
 import { catchesApi } from '../../api/catches';
 import type { Trip } from '../../types/trip';
@@ -32,8 +33,8 @@ function CatchBlock({ item, isOwner, tripLocationId, onDeleted }: {
     try {
       await catchesApi.remove(item.id);
       onDeleted(item.id);
-    } catch {
-      toast.error("Couldn't remove this catch — try again.");
+    } catch (err) {
+      toast.error(isOfflineError(err) ? "Couldn't remove, no connection." : "Couldn't remove this catch — try again.");
     }
   };
 
@@ -136,13 +137,29 @@ function TripView({ trip, onChange, openPublish }: { trip: Trip; onChange: (t: T
     && hasPosition(trip.locationLatitude, trip.locationLongitude);
 
   const handleDelete = async () => {
-    // Soft delete: the trip and its catches are hidden, and an administrator can restore them from a backup.
-    if (!confirm('Delete this trip and all its catches?')) return;
+    // Soft delete (B-24): the trip and its catches go to Recently deleted for 30 days.
+    if (!confirm('Delete this trip and its catches? You can restore it from My Trips → Recently deleted for 30 days.')) return;
     try {
       await tripsApi.remove(trip.id);
+      const id = trip.id;
+      toast('Trip moved to Recently deleted.', {
+        duration: 8000,
+        action: {
+          label: 'Undo',
+          onClick: async () => {
+            try {
+              await tripsApi.restore(id);
+              navigate(`/trips/${id}`);
+              toast.success('Trip restored. It\u2019s private now; publish it again if you want.');
+            } catch {
+              toast.error("Couldn't restore — try from Recently deleted.");
+            }
+          },
+        },
+      });
       navigate('/trips');
-    } catch {
-      toast.error("Couldn't delete this trip — try again.");
+    } catch (err) {
+      toast.error(isOfflineError(err) ? "Couldn't delete, no connection." : "Couldn't delete this trip — try again.");
     }
   };
 
@@ -162,6 +179,21 @@ function TripView({ trip, onChange, openPublish }: { trip: Trip; onChange: (t: T
   const handleCatchDeleted = (catchId: string) => {
     const catches = trip.catches.filter((c) => c.id !== catchId);
     onChange({ ...trip, catches, catchCount: catches.length });
+    // Undo (B-24): the delete is soft, so it can be reversed.
+    toast('Catch removed.', {
+      duration: 8000,
+      action: {
+        label: 'Undo',
+        onClick: async () => {
+          try {
+            await catchesApi.restore(catchId);
+            onChange(await tripsApi.getById(trip.id));
+          } catch {
+            toast.error("Couldn't undo — try again from the trip later.");
+          }
+        },
+      },
+    });
   };
 
   return (
@@ -209,7 +241,9 @@ function TripView({ trip, onChange, openPublish }: { trip: Trip; onChange: (t: T
           <CastDivider />
 
           <p className="text-muted-foreground">
-            📍 {trip.locationHidden ? 'Location hidden by the angler' : trip.locationName ?? 'No location'} &nbsp;·&nbsp; 📅 {formatTripDates(trip)}
+            📍 {trip.locationHidden ? 'Location hidden by the angler' : trip.locationName ?? 'No location'}
+            {trip.locationDeleted && isOwner && <span className="text-xs"> (removed from your spots)</span>}
+            {' '}&nbsp;·&nbsp; 📅 {formatTripDates(trip)}
             {times && <> &nbsp;·&nbsp; 🕒 {times}</>}
           </p>
           {isOwner && !trip.endTime && (

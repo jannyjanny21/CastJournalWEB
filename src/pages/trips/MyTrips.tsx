@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Globe, Lock } from 'lucide-react';
+import { Globe, Lock, Trash2 } from 'lucide-react';
 import { tripsApi } from '../../api/trips';
 import type { PagedResult } from '../../types/catch';
 import type { Trip } from '../../types/trip';
@@ -70,6 +70,9 @@ export function MyTrips() {
               Clear
             </Button>
           )}
+          <Link to="/trips/deleted" className="ml-auto flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+            <Trash2 className="size-4" /> Recently deleted
+          </Link>
         </div>
       </PageHeader>
 
