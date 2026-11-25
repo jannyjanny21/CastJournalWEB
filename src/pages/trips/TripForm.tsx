@@ -39,6 +39,8 @@ import { drafts, toFiles, type TripDraft } from '../../offline/drafts';
 import { useConfirm } from '../../hooks/useConfirm';
 
 const ADD_NEW_LOCATION = '__add_new__';
+/** The spot made on the device while offline (values.newLocation); uploaded with the trip. */
+const PENDING_LOCATION = '__pending_new__';
 
 const positiveOrEmpty = z
   .string()
@@ -67,6 +69,18 @@ const tripFormSchema = z
     multiDay: z.boolean(),
     endDate: z.string(),
     locationId: z.string().min(1, 'Location is required'),
+    /** A spot added while offline (F-13), kept with the draft; used when locationId is PENDING_LOCATION. */
+    newLocation: z
+      .object({
+        name: z.string(),
+        description: z.string().nullable(),
+        latitude: z.number(),
+        longitude: z.number(),
+        waterType: z.string(),
+        isPublic: z.boolean(),
+      })
+      .nullable()
+      .optional(),
     weatherConditions: z.string().max(500, 'At most 500 characters'),
     notes: z.string().max(1000, 'At most 1000 characters'),
     publishAfterSave: z.boolean(),
@@ -161,6 +175,7 @@ export function TripForm() {
       multiDay: false,
       endDate: '',
       locationId: '',
+      newLocation: null,
       weatherConditions: '',
       notes: '',
       publishAfterSave: false,
@@ -245,6 +260,8 @@ export function TripForm() {
   const finishDraft = () => {
     if (userId) void drafts.finish(userId);
   };
+  const pendingSpot = useWatch({ control: form.control, name: 'newLocation' });
+  const pendingLabel = pendingSpot ? `${pendingSpot.name} (new, saved on this device)` : '';
   const [watchedLocation, watchedDate, watchedStart, watchedEnd, watchedStillFishing, watchedMultiDay, watchedEndDate] = useWatch({
     control: form.control,
     name: ['locationId', 'tripDate', 'startTime', 'endTime', 'stillFishing', 'multiDay', 'endDate'],
@@ -286,6 +303,7 @@ export function TripForm() {
           multiDay: !!t.endDate,
           endDate: t.endDate ?? '',
           locationId: t.locationId ?? '',
+          newLocation: null,
           weatherConditions: t.weatherConditions ?? '',
           notes: t.notes ?? '',
           publishAfterSave: false,
@@ -297,6 +315,7 @@ export function TripForm() {
   }, [id, isEdit]);
 
   const onSubmit = async (values: TripFormValues) => {
+    const pendingSpot = !isEdit && values.locationId === PENDING_LOCATION ? values.newLocation ?? null : null;
     const tripPayload: UpdateTripPayload = {
       title: values.title.trim() || null,
       tripDate: values.tripDate,
@@ -304,10 +323,15 @@ export function TripForm() {
       endTime: fromTimeInput(values.endTime),
       stillFishing: values.stillFishing && !values.endTime,
       endDate: values.multiDay && !values.stillFishing && values.endDate ? values.endDate : null,
-      locationId: values.locationId || null,
+      locationId: pendingSpot || values.locationId === PENDING_LOCATION ? null : values.locationId || null,
       notes: values.notes || null,
       weatherConditions: values.weatherConditions || null,
+      ...(pendingSpot ? { newLocation: pendingSpot } : {}),
     };
+    if (values.locationId === PENDING_LOCATION && !pendingSpot) {
+      form.setError('locationId', { message: 'Location is required' });
+      return;
+    }
 
     try {
       if (isEdit) {
@@ -323,7 +347,7 @@ export function TripForm() {
         userId: user!.id,
         createdAt: 0, // stamped by outbox.add
         trip: tripPayload,
-        locationName: locations.find((l) => l.id === values.locationId)?.name ?? null,
+        locationName: pendingSpot?.name ?? locations.find((l) => l.id === values.locationId)?.name ?? null,
         publishAfterSave: values.publishAfterSave,
         status: 'pending',
         catches: values.catches.map((c, i) => ({
@@ -548,6 +572,7 @@ export function TripForm() {
                     <Select
                       items={[
                         ...locations.map((l) => ({ value: l.id, label: l.name })),
+                        ...(pendingSpot && !isEdit ? [{ value: PENDING_LOCATION, label: pendingLabel }] : []),
                         ...(removedSpot ? [{ value: removedSpot.id, label: `${removedSpot.name} (removed)` }] : []),
                         { value: ADD_NEW_LOCATION, label: '+ Add new location' },
                       ]}
@@ -569,6 +594,9 @@ export function TripForm() {
                         {locations.map((l) => (
                           <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
                         ))}
+                        {pendingSpot && !isEdit && (
+                          <SelectItem value={PENDING_LOCATION}>{pendingLabel}</SelectItem>
+                        )}
                         {removedSpot && (
                           <SelectItem value={removedSpot.id}>{removedSpot.name} (removed)</SelectItem>
                         )}
@@ -584,17 +612,27 @@ export function TripForm() {
                         setLocations((prev) => [...prev, newLocation]);
                         field.onChange(newLocation.id);
                       }}
+                      onSavedOffline={isEdit ? undefined : (spot) => {
+                        form.setValue('newLocation', spot, { shouldDirty: true });
+                        field.onChange(PENDING_LOCATION);
+                      }}
                     />
                   </FormItem>
                 )}
               />
 
-              {watchedLocation && !online && (
+              {watchedLocation === PENDING_LOCATION && (
+                <p className="m-0 rounded-lg border border-dashed border-border p-3 text-sm text-muted-foreground">
+                  This spot is new and saved on this device. It's added to your spots, with weather, moon and tides for
+                  the trip, when the trip uploads.
+                </p>
+              )}
+              {watchedLocation && watchedLocation !== PENDING_LOCATION && !online && (
                 <p className="m-0 rounded-lg border border-dashed border-border p-3 text-sm text-muted-foreground">
                   You're offline. Weather, moon and tides will be added when the trip uploads.
                 </p>
               )}
-              {watchedLocation && online && (
+              {watchedLocation && watchedLocation !== PENDING_LOCATION && online && (
                 // Weather, moon and tides are saved with the trip for the middle of the session (FR-16).
                 watchedStart && watchedDate && moment ? (
                   <div className="space-y-2">

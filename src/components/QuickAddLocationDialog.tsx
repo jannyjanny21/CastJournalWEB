@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { locationsApi } from '../api/locations';
-import type { Location } from '../types/location';
+import { isOfflineError } from '../api/client';
+import { useOfflineStatus } from '../offline/status';
+import type { CreateLocationPayload, Location } from '../types/location';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
@@ -17,11 +19,18 @@ export function QuickAddLocationDialog({
   open,
   onOpenChange,
   onCreated,
+  onSavedOffline,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated: (location: Location) => void;
+  /**
+   * Offline (F-13): keep the spot on the device instead; it is uploaded with the trip it's used for.
+   * Without this, adding a spot needs a connection.
+   */
+  onSavedOffline?: (location: CreateLocationPayload) => void;
 }) {
+  const { online } = useOfflineStatus();
   const [name, setName] = useState('');
   const [waterType, setWaterType] = useState<(typeof WATER_TYPES)[number]>('Freshwater');
   const [isPublic, setIsPublic] = useState(false);
@@ -52,20 +61,34 @@ export function QuickAddLocationDialog({
       setError('Place a pin on the map, or use your location.');
       return;
     }
+    const payload: CreateLocationPayload = {
+      name: name.trim(),
+      description: null,
+      latitude: point.lat,
+      longitude: point.lng,
+      waterType,
+      isPublic,
+    };
+    const keepOnDevice = () => {
+      onSavedOffline!(payload);
+      handleOpenChange(false);
+    };
+    if (!online) {
+      if (onSavedOffline) keepOnDevice();
+      else setError('Adding a spot needs a connection. Try again when you\'re back online.');
+      return;
+    }
     setIsSaving(true);
     setError(null);
     try {
-      const created = await locationsApi.create({
-        name: name.trim(),
-        description: null,
-        latitude: point.lat,
-        longitude: point.lng,
-        waterType,
-        isPublic,
-      });
+      const created = await locationsApi.create(payload);
       onCreated(created);
       handleOpenChange(false);
     } catch (err) {
+      if (isOfflineError(err) && onSavedOffline) {
+        keepOnDevice();
+        return;
+      }
       setError(err && typeof err === 'object' && 'message' in err
         ? String((err as { message: unknown }).message)
         : "Couldn't save that location — try again.");
@@ -95,6 +118,13 @@ export function QuickAddLocationDialog({
 
           <div>
             <Label>Position *</Label>
+            {!online && (
+              <p className="mb-2 text-xs text-muted-foreground">
+                You're offline, so the map may stay blank. Tap <strong>Use my location</strong>: GPS works without signal
+                (the first fix can take a minute in the open).
+                {onSavedOffline && ' The spot is saved with this trip when it uploads.'}
+              </p>
+            )}
             <MapPicker value={point} onChange={setPoint} height={220} />
           </div>
 

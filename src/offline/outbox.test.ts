@@ -19,9 +19,10 @@ vi.mock('../api/client', () => ({
 
 vi.mock('../api/trips', () => ({
   tripsApi: {
-    create: async (p: { clientId: string }) => {
+    create: async (p: { clientId: string; newLocation?: { name: string } | null }) => {
       if (server.offline) throw { status: 0 };
       server.calls.push(`createTrip:${p.clientId}`);
+      if (p.newLocation) server.calls.push(`newSpot:${p.newLocation.name}`);
       return { id: `T-${p.clientId}` };
     },
     addCatch: async (tripId: string, p: { clientId: string }) => {
@@ -195,5 +196,24 @@ describe('unfinished quick catches (drafts)', () => {
     const moved = await catchDrafts.load('u1', catchDraftTarget.saved('T-E'));
     expect(moved).toMatchObject({ speciesId: 's1', weight: '2.5', notes: 'by the rocks' });
     expect(moved?.photos).toHaveLength(1);
+  });
+});
+
+describe('a fishing spot added without signal', () => {
+  it('O-19 sends the spot made on the device with its trip, once, when back online', async () => {
+    server.offline = true;
+    const entry = tripEntry('S');
+    entry.trip = { ...entry.trip, newLocation: {
+      name: 'Breakwater, north end', description: null, latitude: 8.5881, longitude: 123.3409, waterType: 'Saltwater', isPublic: false,
+    } } as never;
+    await outbox.add(entry);
+    expect((await syncOne('S')).state).toBe('offline');
+
+    server.offline = false;
+    await syncAll();
+    await syncAll();
+
+    expect(server.calls).toEqual(['createTrip:S', 'newSpot:Breakwater, north end', 'addCatch:T-S:S-c1']);
+    expect(await queued()).toHaveLength(0);
   });
 });
