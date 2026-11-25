@@ -3,9 +3,9 @@ import { useEffect, useState, type ReactNode } from 'react';
 
 // Add real photo paths here later, e.g. '/images/auth/lake-sunrise.jpg' — 2+ enables the slideshow.
 const SLIDES: string[] = [
-    '/dakak.jpg',
-  
-    
+  '/login-bg-image.png',
+
+
 ];
 
 export function AuthLayout({ children }: { children: ReactNode }) {
