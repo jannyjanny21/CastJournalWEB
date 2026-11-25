@@ -181,6 +181,12 @@ label {
   .animated-gradient-bg { animation: none !important; }
 }
 
+/* Installed app: the page doesn't rubber-band or trigger a browser refresh; our own
+   pull-to-refresh (PullToRefresh.tsx) handles the gesture instead. */
+@media (display-mode: standalone) {
+  html, body { overscroll-behavior-y: contain; }
+}
+
 /* A clear keyboard focus ring everywhere, including custom buttons and links (WCAG 2.4.7). */
 :where(a, button, [role="tab"], [tabindex]:not([tabindex="-1"])):focus-visible {
   outline: 2px solid var(--color-ring, #2563eb);

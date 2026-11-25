@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { OfflineBanner } from './OfflineBanner';
 import { BottomNav } from './BottomNav';
+import { PullToRefresh } from './PullToRefresh';
 import { usePageTitle } from '../hooks/usePageTitle';
 
 const MAIN_ID = 'main-content';
@@ -33,6 +34,7 @@ export function Layout() {
         </main>
       </div>
       <BottomNav />
+      <PullToRefresh />
     </div>
   );
 }
