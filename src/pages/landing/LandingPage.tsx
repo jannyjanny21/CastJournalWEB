@@ -17,16 +17,16 @@ const features = [
 // per-tile via the className below — add, remove, or reposition as needed.
 // Each needs its own placement so they don't overlap the centered copy.
 const HERO_POLAROIDS = [
-  { src: '/welcome-img-1.jpg', alt: 'An angler surf casting at sunset beside a fresh striped bass', className: '-left-4 top-6 w-40 -rotate-6 hidden lg:block' },
-  { src: '/welcome-img-2.jpg', alt: 'An angler casting from the rocks under stormy skies', className: '-right-2 top-24 w-44 rotate-3 hidden lg:block' },
-  { src: '/welcome-img-3.jpg', alt: 'An angler casting from a tropical beach', className: 'left-10 bottom-0 w-36 rotate-2 hidden xl:block' },
+  { src: '/sunset.jpg', alt: "Fishing rod at the water's edge", className: '-left-4 top-6 w-40 -rotate-6 hidden lg:block' },
+  { src: '/rod_with_catch.jpg', alt: 'A rod bent with a catch', className: '-right-2 top-24 w-44 rotate-3 hidden lg:block' },
+  { src: '/two_rods.jpg', alt: 'Two rods set up on the bank', className: 'left-10 bottom-0 w-36 rotate-2 hidden xl:block' },
 ];
 
 export function LandingPage() {
   const { isAuthenticated } = useAuth();
 
-  // Already signed in? Skip the pitch and go straight to the feed.
-  if (isAuthenticated) return <Navigate to="/dashboard" replace />;
+  // Already signed in (including opening the installed app)? Skip the pitch and start on the feed.
+  if (isAuthenticated) return <Navigate to="/feed" replace />;
 
   return (
     <div className="min-h-screen overflow-x-hidden">
@@ -35,7 +35,7 @@ export function LandingPage() {
           <img src="/logo-icon.svg" alt="" className="h-6 w-auto sm:h-8" />
           CastJournal
         </Link>
-        <div className="flex items-center gap-1 sm:gap-2">
+       <div className="flex items-center gap-1 sm:gap-2">
           <Link to="/login"><Button variant="ghost" size="sm" className="sm:h-9 sm:px-4 sm:text-sm">Log in</Button></Link>
           <Link to="/register"><Button size="sm" className="sm:h-9 sm:px-4 sm:text-sm">Sign up</Button></Link>
         </div>
@@ -69,7 +69,7 @@ export function LandingPage() {
             <Link to="/login"><Button size="lg" variant="outline">Log in</Button></Link>
           </div>
         </div>
-
+    
 
         <section className="mx-auto max-w-5xl px-6 pt-24">
           <div className="text-center">
@@ -88,9 +88,9 @@ export function LandingPage() {
             ))}
           </div>
         </section>
-      </section>
+      </section>       
       <footer className="border-t border-border py-5 text-center text-sm text-muted-foreground">
-        © {new Date().getFullYear()} CastJournal by 3 musketeers{' '}
+        © {new Date().getFullYear()} CastJournal by Clrns V ·{' '}
         <Link to="/privacy" className="underline underline-offset-4 hover:text-foreground">Privacy notice</Link>
       </footer>
     </div>

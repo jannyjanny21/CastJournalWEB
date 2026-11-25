@@ -34,7 +34,8 @@ export function Login() {
     return () => clearSessionExpiredMessage();
   }, [clearSessionExpiredMessage]);
 
-  const from = (location.state as { from?: Location })?.from?.pathname ?? '/dashboard';
+  // After signing in, go back to the page that asked for it, otherwise start on the community feed.
+  const from = (location.state as { from?: Location })?.from?.pathname ?? '/feed';
 
   const onSubmit = async (values: LoginValues) => {
     try {
