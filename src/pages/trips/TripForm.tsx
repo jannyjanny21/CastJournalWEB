@@ -190,6 +190,7 @@ export function TripForm() {
   const [draftMode, setDraftMode] = useState<'checking' | 'offer' | 'active'>(isEdit ? 'active' : 'checking');
   const [draftOffer, setDraftOffer] = useState<TripDraft<TripFormValues> | null>(null);
   const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
+  const [draftFailed, setDraftFailed] = useState(false);
   // Photos of a restored draft, waiting for the catch rows to exist so they can be matched by row.
   const [restoredPhotos, setRestoredPhotos] = useState<File[][] | null>(null);
   const allValues = useWatch({ control: form.control });
@@ -229,7 +230,14 @@ export function TripForm() {
         return;
       }
       void drafts.save(userId, values, rows).then((ok) => {
-        if (ok) setDraftSavedAt(Date.now());
+        if (ok) {
+          setDraftSavedAt(Date.now());
+          setDraftFailed(false);
+        } else if (!drafts.isFinished(userId)) {
+          // The device refused the write (almost always: storage full). Say so instead of failing quietly.
+          setDraftSavedAt(null);
+          setDraftFailed(true);
+        }
       });
     }, 800);
     return () => window.clearTimeout(timer);
@@ -863,6 +871,13 @@ export function TripForm() {
               {form.formState.errors.root && (
                 <p className="text-sm text-destructive" role="alert">
                   {form.formState.errors.root.message}
+                </p>
+              )}
+
+              {!isEdit && draftFailed && (
+                <p className="m-0 flex items-center gap-1.5 text-xs text-destructive" role="status">
+                  <FileClock className="size-3.5" /> Couldn't keep a draft: this device's storage is full. Save the trip
+                  before closing this page, or free up space.
                 </p>
               )}
 

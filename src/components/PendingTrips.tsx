@@ -12,6 +12,7 @@ import { useAuth } from '../context/useAuth';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useConfirm } from '../hooks/useConfirm';
+import { formatMb, useStorageAlmostFull } from '../utils/storage';
 
 function describe(e: OutboxEntry): string {
   if (e.kind === 'catch') {
@@ -36,6 +37,7 @@ export function PendingTrips() {
   const [catchFor, setCatchFor] = useState<OutboxEntry | null>(null);
   const { user } = useAuth();
   const hasCatchDraft = useCatchDrafts(user?.id);
+  const almostFull = useStorageAlmostFull(entries);
   if (entries.length === 0) return null;
 
   return (
@@ -50,6 +52,16 @@ export function PendingTrips() {
           </Button>
         )}
       </div>
+
+      {almostFull && (
+        <p className="m-0 flex items-start gap-2 rounded-lg border border-[color:var(--color-brass)]/50 bg-muted/40 p-3 text-sm" role="status">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-[color:var(--color-brass)]" />
+          <span>
+            Storage for CastJournal on this device is almost full ({formatMb(almostFull.free)} left). Upload these when
+            you have signal, or free up space before adding more photos and videos.
+          </span>
+        </p>
+      )}
 
       {entries.map((e) => (
         <Card key={e.id} className="border-dashed">

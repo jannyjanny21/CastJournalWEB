@@ -36,6 +36,11 @@ export const drafts = {
     }
   },
 
+  /** False from save() because the trip was just saved (not because storage failed). */
+  isFinished(userId: string): boolean {
+    return finished.has(userId);
+  },
+
   async save<V>(userId: string, values: V, photos: File[][]): Promise<boolean> {
     if (finished.has(userId)) return false;
     const draft: TripDraft<V> = {
@@ -135,6 +140,11 @@ export const catchDrafts = {
     } catch {
       return null;
     }
+  },
+
+  /** False from save() because the catch was just saved (not because storage failed). */
+  isFinished(userId: string, target: string): boolean {
+    return finished.has(catchKey(userId, target));
   },
 
   async save(userId: string, target: string, draft: Omit<CatchDraft, 'photos' | 'savedAt'>, photos: File[]): Promise<boolean> {

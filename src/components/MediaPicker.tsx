@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp, Camera, ImagePlus, Video, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MAX_IMAGE_MB, MAX_VIDEO_MB, canUseWebcam, mediaFileProblem } from '../utils/media';
 import { WebcamCaptureDialog } from './WebcamCaptureDialog';
+import { noRoomFor } from '../utils/storage';
 
 /** Phones and tablets: the file input's `capture` opens the built-in camera app. */
 function hasNativeCameraCapture(): boolean {
@@ -45,7 +46,14 @@ export function MediaPicker({
     const room = Math.max(0, maxCount - files.length);
     if (ok.length > room) errors.push(`Only ${maxCount} photos and videos per catch — ${ok.length - room} not added.`);
     setProblems(errors);
-    if (room > 0 && ok.length > 0) onChange([...files, ...ok.slice(0, room)]);
+    if (room > 0 && ok.length > 0) {
+      const next = [...files, ...ok.slice(0, room)];
+      onChange(next);
+      // Warn now, not when Save fails: everything is kept on the device until it uploads.
+      void noRoomFor(next).then((msg) => {
+        if (msg) setProblems((prev) => [...prev, msg]);
+      });
+    }
   };
 
   const move = (i: number, dir: -1 | 1) => {

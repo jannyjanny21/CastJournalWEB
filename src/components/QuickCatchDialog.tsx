@@ -52,6 +52,7 @@ export function QuickCatchDialog({ target, open, onOpenChange, onSaved }: {
   const [notes, setNotes] = useState('');
   const [photos, setPhotos] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [draftFailed, setDraftFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const userId = user?.id;
   const draftTarget = draftTargetOf(target);
@@ -88,7 +89,9 @@ export function QuickCatchDialog({ target, open, onOpenChange, onSaved }: {
     const timer = window.setTimeout(() => {
       const empty = !speciesId && !weight.trim() && !length.trim() && !notes.trim() && photos.length === 0;
       if (empty) void catchDrafts.remove(userId, draftTarget);
-      else void catchDrafts.save(userId, draftTarget, { speciesId, weight, length, notes }, photos);
+      else void catchDrafts.save(userId, draftTarget, { speciesId, weight, length, notes }, photos).then((ok) => {
+        setDraftFailed(!ok && !catchDrafts.isFinished(userId, draftTarget));
+      });
     }, 500);
     return () => window.clearTimeout(timer);
   }, [open, userId, loadedFor, draftTarget, speciesId, weight, length, notes, photos]);
@@ -233,6 +236,11 @@ export function QuickCatchDialog({ target, open, onOpenChange, onSaved }: {
             <Label htmlFor="qc-notes">Notes</Label>
             <Input id="qc-notes" maxLength={1000} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" />
           </div>
+          {draftFailed && !error && (
+            <p className="m-0 text-xs text-destructive" role="status">
+              Couldn't keep a draft: this device's storage is full. Save the catch before closing, or free up space.
+            </p>
+          )}
           {error && <p className="m-0 text-sm text-destructive">{error}</p>}
         </div>
 
