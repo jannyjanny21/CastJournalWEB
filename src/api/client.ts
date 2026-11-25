@@ -64,10 +64,12 @@ async function parseErrorMessage(response: Response, fallback: string): Promise<
 
   if (typeof body === 'string') return { message: body, details: body };
 
-  const message =
-    body?.title ??
-    (body?.errors ? Object.values(body.errors).flat().join(' ') : null) ??
-    fallback;
+  // A validation problem's own messages say what was wrong; its title ("One or more validation
+  // errors occurred.") doesn't, so it's only the fallback.
+  const fieldErrors = body?.errors && typeof body.errors === 'object'
+    ? Object.values(body.errors as Record<string, unknown>).flat().filter((e) => typeof e === 'string' && e).join(' ')
+    : '';
+  const message = fieldErrors || body?.title || body?.message || fallback;
 
   return { message, details: body };
 }
@@ -185,7 +187,27 @@ export const api = {
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
 };
 
+/**
+ * Copies every file in the form into memory before sending. Safari on iOS (WebKit bug 319985,
+ * iOS 26.5) sends an empty body for a file read from disk while a service worker controls the
+ * page, which a PWA always is: the server then sees no file at all. A file already in memory is
+ * sent correctly everywhere. Photos and videos are capped at 25 MB, so the copy is affordable.
+ */
+async function inMemory(form: FormData): Promise<FormData> {
+  const copy = new FormData();
+  for (const [key, value] of form.entries()) {
+    if (typeof value === 'string') {
+      copy.append(key, value);
+    } else {
+      const bytes = await value.arrayBuffer();
+      copy.append(key, new File([bytes], value.name || 'upload', { type: value.type || 'application/octet-stream' }));
+    }
+  }
+  return copy;
+}
+
 export async function uploadFile<T>(path: string, formData: FormData, isRetry = false): Promise<T> {
+  if (!isRetry) formData = await inMemory(formData);
   const token = getToken();
   const response = await send(`${API_BASE_URL}${path}`, {
     method: 'POST',
