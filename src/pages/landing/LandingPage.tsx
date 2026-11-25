@@ -90,7 +90,7 @@ export function LandingPage() {
         </section>
       </section>
       <footer className="border-t border-border py-5 text-center text-sm text-muted-foreground">
-        © {new Date().getFullYear()} CastJournal by Clrns V ·{' '}
+        © {new Date().getFullYear()} CastJournal by 3 musketeers{' '}
         <Link to="/privacy" className="underline underline-offset-4 hover:text-foreground">Privacy notice</Link>
       </footer>
     </div>
