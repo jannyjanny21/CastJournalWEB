@@ -1,3 +1,4 @@
+import type { CreateLocationPayload } from './location';
 import type { Catch, CreateCatchPayload } from './catch';
 
 /**
@@ -56,6 +57,11 @@ export interface UpdateTripPayload {
   weatherConditions: string | null;
   /** Logging a trip that's still going (started within the last 7 days), so there's no end time yet. */
   stillFishing?: boolean;
+  /**
+   * New trips only: a spot made on the device while offline, used when locationId is null.
+   * The server saves the spot and the trip together, so a retried upload never makes it twice.
+   */
+  newLocation?: CreateLocationPayload | null;
 }
 
 export interface CreateTripPayload extends UpdateTripPayload {
